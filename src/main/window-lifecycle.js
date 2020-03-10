@@ -1,6 +1,6 @@
 // @flow
 import "./setup";
-import { BrowserWindow, screen } from "electron";
+import { BrowserWindow, screen, shell } from "electron";
 import path from "path";
 import icon from "../../build/icons/icon.png";
 
@@ -92,6 +92,13 @@ export async function createMainWindow({ dimensions, positions }: any, settings:
 
   mainWindow.on("closed", () => {
     mainWindow = null;
+  });
+
+  mainWindow.webContents.on("new-window", (e, url, frameName, disposition, options) => {
+    // TODO we must check who triggers it: needed for the iframe content of buy crypto...
+    e.preventDefault();
+    // TODO WE MUST VALIDATE THE URL so it doesn't contain javascript:... or any other non http thingy
+    shell.openExternal(url);
   });
 
   return mainWindow;

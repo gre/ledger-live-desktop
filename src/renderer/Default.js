@@ -13,6 +13,7 @@ import Settings from "~/renderer/screens/settings";
 import Accounts from "~/renderer/screens/accounts";
 import Manager from "~/renderer/screens/manager";
 import Partners from "~/renderer/screens/partners";
+import BuyCrypto from "~/renderer/screens/buycrypto";
 import Account from "~/renderer/screens/account";
 import Asset from "~/renderer/screens/asset";
 import Box from "~/renderer/components/Box/Box";
@@ -96,6 +97,7 @@ const Default = () => {
                       <Route path="/accounts" render={props => <Accounts {...props} />} />
                       <Route path="/manager" render={props => <Manager {...props} />} />
                       <Route path="/partners" render={props => <Partners {...props} />} />
+                      <Route path="/buycrypto" render={props => <BuyCrypto {...props} />} />
                       <Route
                         path="/account/:parentId/:id"
                         render={props => <Account {...props} />}

@@ -203,13 +203,13 @@ const MainSideBar = () => {
     push("/accounts");
   }, [push]);
 
-  const handleClickExchange = useCallback(() => {
-    push("/partners");
-  }, [push]);
-
   const maybeRedirectToAccounts = useCallback(() => {
     return location.pathname === "/manager" && push("/accounts");
   }, [location.pathname, push]);
+
+  const handleClickExchange = useCallback(() => {
+    push("/buycrypto");
+  }, [push]);
 
   const handleOpenSendModal = useCallback(() => {
     maybeRedirectToAccounts();
@@ -282,12 +282,14 @@ const MainSideBar = () => {
                 isActive={location.pathname === "/manager"}
                 collapsed={secondAnim}
               />
+
               <SideBarListItem
                 label={t("sidebar.exchange")}
                 icon={IconExchange}
                 iconActiveColor="wallet"
                 onClick={handleClickExchange}
-                isActive={location.pathname === "/partners"}
+                isActive={location.pathname === "/buycrypto"}
+                disabled={noAccounts || navigationLocked}
                 collapsed={secondAnim}
               />
               <Space of={30} />
