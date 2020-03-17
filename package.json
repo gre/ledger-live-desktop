@@ -50,7 +50,7 @@
     "@trust/keyto": "^1.0.1",
     "animated": "^0.2.2",
     "async": "^3.2.0",
-    "axios": "^0.19.1",
+    "axios": "^0.19.2",
     "bignumber.js": "^9.0.0",
     "chart.js": "^2.9.3",
     "color": "^3.1.2",

@@ -131,7 +131,16 @@
       "to": "Destination account"
     },
     "modal": {
-      "title": "Summary of swap operation",
+      "title": "Summary",
+      "tos": "Terms & Conditions",
+      "summary": {
+        "from": "From",
+        "to": "To",
+        "toExchange": "To exchange",
+        "toReceive": "To receive",
+        "provider": "Provider"
+      },
+      "disclaimer": "I accept entering in an agreement with Changelly.\nI understand that Ledger is not responsible for the Swap.",
       "desc": "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Suspendisse sit amet mi quam. Etiam semper justo et augue dignissim placerat non at risus."
     }
   },
@@ -2116,6 +2125,9 @@
     },
     "StellarMemoRecommended": {
       "title": "A memo may be required when sending to this recipient"
+    },
+    "SwapExchangeRateOutOfBounds": {
+      "title": "Amount must be between {{from}} {{minAmountFrom}} and {{from}} {{maxAmountFrom}}"
     }
   }
 }

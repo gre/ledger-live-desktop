@@ -17,6 +17,7 @@ import testApdu from "./testApdu";
 import testCrash from "./testCrash";
 import testInterval from "./testInterval";
 import appOpExec from "./appOpExec";
+import initSwap from "./initSwap";
 import { commands as bridgeProxyCommands } from "~/renderer/bridge/proxy-commands";
 
 export const commandsById = {
@@ -37,6 +38,7 @@ export const commandsById = {
   listApps,
   ping,
   testApdu,
+  initSwap,
   testCrash,
   testInterval,
 };

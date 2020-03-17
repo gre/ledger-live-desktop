@@ -11,8 +11,6 @@ import Card from "~/renderer/components/Box/Card";
 import SelectAccount from "~/renderer/components/SelectAccount";
 import { accountsSelector } from "~/renderer/reducers/accounts";
 import Label from "~/renderer/components/Label";
-import IconArrowDown from "~/renderer/icons/ArrowDown";
-import type { ThemedComponent } from "~/renderer/styles/StyleProvider";
 import styled from "styled-components";
 import InputCurrency from "~/renderer/components/InputCurrency";
 import { getAccountCurrency, getAccountUnit } from "@ledgerhq/live-common/lib/account";
@@ -25,29 +23,8 @@ import TranslatedError from "~/renderer/components/TranslatedError";
 import Text from "~/renderer/components/Text";
 import Button from "~/renderer/components/Button";
 import Price from "~/renderer/components/Price";
-
-const Separator: ThemedComponent<{}> = styled.div`
-  display: flex;
-  align-items: center;
-  margin: 10px 0px;
-  & > div {
-    flex: 1;
-    height: 1px;
-    background: ${p => p.theme.colors.palette.divider};
-    &:nth-of-type(2) {
-      color: ${p => p.theme.colors.palette.primary.main};
-      flex: unset;
-      display: flex;
-      align-items: center;
-      height: 36px;
-      width: 36px;
-      border-radius: 36px;
-      background: transparent;
-      justify-content: center;
-      border: 1px solid ${p => p.theme.colors.palette.divider};
-    }
-  }
-`;
+import ArrowSeparator from "~/renderer/components/ArrowSeparator";
+import { NotEnoughBalance } from "@ledgerhq/errors";
 
 const InputRight = styled(Box).attrs(() => ({
   ff: "Inter|Medium",
@@ -66,26 +43,20 @@ const ErrorDisplay = styled(Card)`
   justify-content: center;
 `;
 
-const Pre = styled.pre`
-  margin-top: 20px;
-  border: 1px solid gray;
-  word-break: break-all;
-  white-space: pre-wrap;
-  overflow: scroll;
-  padding: 8px;
-  font-family: monospace;
-  font-size: 12px;
-  border-radius: 4px;
-`;
-
 const initState = validFrom => ({
-  exchange: {
-    fromAccount: validFrom && validFrom[0],
-    toAccount: null,
-    fromAmount: BigNumber(0),
+  swap: {
+    exchange: {
+      fromAccount: validFrom && validFrom[0],
+      toAccount: null,
+      fromAmount: BigNumber(0),
+    },
+    exchangeRate: null,
+    operation: null,
+    swapStatus: {
+      swapId: undefined,
+    },
   },
   validFrom,
-  rate: null,
   error: null,
   isLoading: false,
 });
@@ -93,11 +64,24 @@ const initState = validFrom => ({
 const reducer = (state, { type, payload }) => {
   switch (type) {
     case "patchExchange":
-      return { ...state, exchange: { ...state.exchange, ...payload }, error: null, rate: null };
+      return {
+        ...state,
+        swap: {
+          ...state.swap,
+          exchangeRate: null,
+          exchange: { ...state.swap.exchange, ...payload },
+        },
+        error: null,
+      };
     case "fetchRates":
       return { ...state, isLoading: true, error: null };
     case "setRate":
-      return { ...state, isLoading: false, error: null, rate: payload.rate };
+      return {
+        ...state,
+        swap: { ...state.swap, exchangeRate: payload.rate },
+        isLoading: false,
+        error: null,
+      };
     case "setError":
       return { ...state, isLoading: false, error: payload.error };
     default:
@@ -120,7 +104,8 @@ const Form = ({
     dispatch,
   ]);
 
-  const { exchange, rate, isLoading, error } = state;
+  const { swap, isLoading, error } = state;
+  const { exchange, exchangeRate } = swap;
   const { fromAccount, toAccount, fromAmount } = exchange;
 
   const validTo = useMemo(
@@ -128,10 +113,22 @@ const Form = ({
     [validFrom, fromAccount],
   );
 
-  const showModal = useCallback(() => dispatchRedux(openModal("MODAL_SWAP", { exchange })), [
-    exchange,
+  const showModal = useCallback(() => dispatchRedux(openModal("MODAL_SWAP", { swap })), [
+    swap,
     dispatchRedux,
   ]);
+
+  const validateSwapLocally = useCallback(() => {
+    if (fromAmount.gt(fromAccount.balance)) {
+      // TODO use EstimateMaxSpendable logic once we have it on the bridge
+      const error = new NotEnoughBalance();
+      dispatch({ type: "setError", payload: { error } });
+      return false;
+    } else if (fromAmount.gt(0)) {
+      return true;
+    }
+    return false;
+  }, [dispatch, fromAccount, fromAmount]);
 
   useEffect(() => {
     const newToAccount = validTo ? validTo[0] : null;
@@ -144,7 +141,9 @@ const Form = ({
     debounce(
       () => {
         async function getRates() {
-          const { exchange } = state;
+          const { swap } = state;
+          const { exchange } = swap;
+
           // Populate parentAccounts in case they're needed (move this to common by passing accounts maybe?)
           exchange.fromParentAccount = fromAccount.parentId
             ? accounts.find(a => a.id === fromAccount.parentId)
@@ -158,7 +157,7 @@ const Form = ({
             error => dispatch({ type: "setError", payload: { error } }),
           );
         }
-        if (fromAccount && toAccount && fromAmount && fromAmount.gt(0)) {
+        if (validateSwapLocally()) {
           dispatch({ type: "fetchRates" });
           getRates();
         }
@@ -182,10 +181,11 @@ const Form = ({
   const fromCurrency = getAccountCurrency(fromAccount);
   const toCurrency = getAccountCurrency(toAccount);
 
-  const toAmount = rate
+  // TODO this seems very weird that I have to do this.
+  const toAmount = exchangeRate
     ? fromAmount
         .div(BigNumber(10).pow(fromUnit.magnitude))
-        .times(rate.rate)
+        .times(exchangeRate.rate)
         .times(BigNumber(10).pow(toUnit.magnitude))
     : BigNumber(0);
 
@@ -226,13 +226,7 @@ const Form = ({
             renderRight={<InputRight>{fromUnit.code}</InputRight>}
           />
         </Box>
-        <Separator>
-          <div />
-          <div>
-            <IconArrowDown size={16} />
-          </div>
-          <div />
-        </Separator>
+        <ArrowSeparator />
         <Box flow={1} horizontal alignItems="flex-end">
           <Box flex={1}>
             <Label mb={4}>
@@ -258,7 +252,7 @@ const Form = ({
             />
           </Box>
         </Box>
-        {fromCurrency && toCurrency && rate ? (
+        {fromCurrency && toCurrency && exchangeRate ? (
           <Box alignItems="flex-end">
             <Price
               fontSize={12}
@@ -266,7 +260,7 @@ const Form = ({
               showAllDigits
               from={fromCurrency}
               to={toCurrency}
-              rate={rate.rate}
+              rate={exchangeRate.rate}
             />
           </Box>
         ) : null}
@@ -281,21 +275,13 @@ const Form = ({
           <Button
             ml={10}
             isLoading={isLoading && !error}
-            disabled={isLoading || error}
+            disabled={isLoading || error || !exchangeRate}
             primary
             onClick={showModal}
           >
-            {"Continue"}
+            <Trans i18nKey="common.continue" />
           </Button>
         </Box>
-        {/* TODO remove this block when finished */}
-        <Pre>
-          {JSON.stringify(
-            { rate, fromCurrency: fromCurrency.id, toCurrency: toCurrency.id } || {},
-            null,
-            "    ",
-          )}
-        </Pre>
       </Card>
     </Box>
   );
