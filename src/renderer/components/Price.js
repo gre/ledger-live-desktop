@@ -109,7 +109,7 @@ const mapStateToProps = (state: State, props: OwnProps) => {
   let counterValue;
   if (rate) {
     // NB Allow to override the rate for swap
-    counterValue = BigNumber(1)
+    counterValue = value
       .times(rate)
       .times(BigNumber(10).pow(counterValueCurrency.units[0].magnitude));
   } else if (from && to && intermediary.ticker !== from.ticker) {

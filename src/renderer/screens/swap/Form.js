@@ -17,7 +17,6 @@ import { getAccountCurrency, getAccountUnit } from "@ledgerhq/live-common/lib/ac
 import { openModal } from "~/renderer/actions/modals";
 import type { Account } from "@ledgerhq/live-common/lib/types";
 import getExchangeRates from "@ledgerhq/live-common/lib/swap/getExchangeRates";
-import debounce from "lodash/debounce";
 import { BigNumber } from "bignumber.js";
 import TranslatedError from "~/renderer/components/TranslatedError";
 import Text from "~/renderer/components/Text";
@@ -25,6 +24,46 @@ import Button from "~/renderer/components/Button";
 import Price from "~/renderer/components/Price";
 import ArrowSeparator from "~/renderer/components/ArrowSeparator";
 import { NotEnoughBalance } from "@ledgerhq/errors";
+import { flattenSortAccountsSelector } from "~/renderer/actions/general";
+import { findTokenByTicker } from "@ledgerhq/live-common/lib/data/tokens";
+
+/**
+ * Enhance an account to force token accounts presence
+ */
+export const accountWithMandatoryTokens = (
+  account: Account,
+  tokenCurrencies: TokenCurrency[],
+): Account => {
+  const { subAccounts } = account;
+  if (!subAccounts) return account;
+
+  const existingTokens = subAccounts.map(a => a.type === "TokenAccount" && a.token).filter(Boolean);
+  const addition = tokenCurrencies
+    .filter(
+      t =>
+        // token of the same currency
+        t.parentCurrency === account.currency &&
+        // not yet in the sub accounts
+        !existingTokens.includes(t),
+    )
+    .map(token => ({
+      type: "TokenAccount",
+      id: account.id + "+" + token.contractAddress,
+      parentId: account.id,
+      token,
+      balance: BigNumber(0),
+      operationsCount: 0,
+      operations: [],
+      pendingOperations: [],
+      starred: false,
+    }));
+
+  if (addition.length === 0) return account;
+  return {
+    ...account,
+    subAccounts: subAccounts.concat(addition),
+  };
+};
 
 const InputRight = styled(Box).attrs(() => ({
   ff: "Inter|Medium",
@@ -92,11 +131,20 @@ const reducer = (state, { type, payload }) => {
 const Form = ({
   accounts,
   validFrom,
+  providers,
 }: {
   accounts: Account[],
   validFrom: Account[],
   onContinue: any,
+  providers: [],
 }) => {
+  // TODO to be replaced when we have the currency ids instead of this ticker madness
+  const tokenCurrencies = uniq(
+    providers.reduce((ac, { supportedCurrencies }) => [...ac, ...supportedCurrencies], []),
+  )
+    .map(tokenTicker => findTokenByTicker(tokenTicker))
+    .filter(Boolean);
+
   const dispatchRedux = useDispatch();
 
   const [state, dispatch] = useReducer(reducer, validFrom, initState);
@@ -119,54 +167,58 @@ const Form = ({
   ]);
 
   const validateSwapLocally = useCallback(() => {
-    if (fromAmount.gt(fromAccount.balance)) {
+    if (fromAmount && fromAmount.gt(fromAccount.balance)) {
       // TODO use EstimateMaxSpendable logic once we have it on the bridge
+      // cc @gre
       const error = new NotEnoughBalance();
       dispatch({ type: "setError", payload: { error } });
+      return false;
+    } else if (exchangeRate) {
       return false;
     } else if (fromAmount.gt(0)) {
       return true;
     }
     return false;
-  }, [dispatch, fromAccount, fromAmount]);
+  }, [exchangeRate, dispatch, fromAccount, fromAmount]);
 
   useEffect(() => {
     const newToAccount = validTo ? validTo[0] : null;
     if (!toAccount || toAccount.id !== newToAccount.id) {
       patchExchange({ toAccount: newToAccount });
     }
-  }, [toAccount, validTo, patchExchange]);
+  }, [fromAccount, validTo, patchExchange]);
 
-  useEffect(
-    debounce(
-      () => {
-        async function getRates() {
-          const { swap } = state;
-          const { exchange } = swap;
+  useEffect(() => {
+    let ignore = false;
+    async function getRates() {
+      // Populate parentAccounts in case they're needed (move this to common by passing accounts maybe?)
+      exchange.fromParentAccount = fromAccount.parentId
+        ? accounts.find(a => a.id === fromAccount.parentId)
+        : null;
+      exchange.toParentAccount = toAccount.parentId
+        ? accounts.find(a => a.id === toAccount.parentId)
+        : null;
 
-          // Populate parentAccounts in case they're needed (move this to common by passing accounts maybe?)
-          exchange.fromParentAccount = fromAccount.parentId
-            ? accounts.find(a => a.id === fromAccount.parentId)
-            : null;
-          exchange.toParentAccount = toAccount.parentId
-            ? accounts.find(a => a.id === toAccount.parentId)
-            : null;
+      getExchangeRates(exchange).then(
+        rates => {
+          if (ignore) return;
+          dispatch({ type: "setRate", payload: { rate: rates[0] } });
+        }, // FIXME still only getting the first rate, eventually there'll be more,
+        error => {
+          if (ignore) return;
+          dispatch({ type: "setError", payload: { error } });
+        },
+      );
+    }
+    if (!ignore && validateSwapLocally()) {
+      getRates();
+      dispatch({ type: "fetchRates" });
+    }
 
-          getExchangeRates(exchange).then(
-            rates => dispatch({ type: "setRate", payload: { rate: rates[0] } }), // FIXME still only getting the first rate, eventually there'll be more,
-            error => dispatch({ type: "setError", payload: { error } }),
-          );
-        }
-        if (validateSwapLocally()) {
-          dispatch({ type: "fetchRates" });
-          getRates();
-        }
-      },
-      1000,
-      { trailing: true },
-    ),
-    [fromAccount, toAccount, fromAmount],
-  );
+    return () => {
+      ignore = true;
+    };
+  }, [accounts, exchange, validateSwapLocally, fromAccount, toAccount, fromAmount]);
 
   // TODO filter does not filter token accounts, which is a bit dafuq
   if (!fromAccount) {
@@ -183,10 +235,7 @@ const Form = ({
 
   // TODO this seems very weird that I have to do this.
   const toAmount = exchangeRate
-    ? fromAmount
-        .div(BigNumber(10).pow(fromUnit.magnitude))
-        .times(exchangeRate.rate)
-        .times(BigNumber(10).pow(toUnit.magnitude))
+    ? fromAmount.times(exchangeRate.rate).times(BigNumber(10).pow(toUnit.magnitude))
     : BigNumber(0);
 
   return (
@@ -204,7 +253,7 @@ const Form = ({
         </Box>
       </Box>
       <Card p={32} flow={1}>
-        <Box flow={1} horizontal alignItems="flex-end">
+        <Box flow={1} mb={3} horizontal alignItems="flex-end">
           <Box flex={1}>
             <Label mb={4}>
               <Trans i18nKey="swap.start.from" />
@@ -218,13 +267,15 @@ const Form = ({
               value={fromAccount}
             />
           </Box>
-          <InputCurrency
-            key={fromUnit.code}
-            defaultUnit={fromUnit}
-            value={fromAmount}
-            onChange={fromAmount => patchExchange({ fromAmount })}
-            renderRight={<InputRight>{fromUnit.code}</InputRight>}
-          />
+          <Box flex={1}>
+            <InputCurrency
+              key={fromUnit.code}
+              defaultUnit={fromUnit}
+              value={fromAmount}
+              onChange={fromAmount => patchExchange({ fromAmount })}
+              renderRight={<InputRight>{fromUnit.code}</InputRight>}
+            />
+          </Box>
         </Box>
         <ArrowSeparator />
         <Box flow={1} horizontal alignItems="flex-end">
@@ -234,14 +285,13 @@ const Form = ({
             </Label>
             <SelectAccount
               withSubAccounts
-              filter={a => validTo.includes(a)}
-              enforceHideEmptySubAccounts
+              enhance={a => accountWithMandatoryTokens(a, tokenCurrencies)}
               autoFocus={true}
               onChange={toAccount => patchExchange({ toAccount })}
               value={toAccount}
             />
           </Box>
-          <Box>
+          <Box flex={1}>
             <InputCurrency
               key={toUnit.code}
               defaultUnit={toUnit}
@@ -283,16 +333,31 @@ const Form = ({
           </Button>
         </Box>
       </Card>
+      <Card p={20}>
+        <pre>
+          {JSON.stringify(
+            {
+              from: getAccountCurrency(exchange.fromAccount).ticker,
+              to: getAccountCurrency(exchange.toAccount).ticker,
+              amount: fromAmount.div(
+                BigNumber(10).pow(getAccountUnit(exchange.fromAccount).magnitude),
+              ),
+            },
+            null,
+            "  ",
+          )}
+        </pre>
+      </Card>
     </Box>
   );
 };
 
 const validFromSelector = createSelector(
-  accountsSelector,
+  flattenSortAccountsSelector,
   (_, { providers }) =>
     uniq(providers.reduce((ac, { supportedCurrencies }) => [...ac, ...supportedCurrencies], [])),
   (accounts, supportedCurrencies) =>
-    accounts.filter(a => supportedCurrencies.includes(a.currency.ticker)),
+    accounts.filter(a => supportedCurrencies.includes(getAccountCurrency(a).ticker.toUpperCase())),
 );
 
 const mapStateToProps = createStructuredSelector({

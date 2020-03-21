@@ -117,6 +117,7 @@ type OwnProps = {
   withSubAccounts?: boolean,
   enforceHideEmptySubAccounts?: boolean,
   filter?: Account => boolean,
+  map?: Account => Account,
   onChange: (account: ?AccountLike, tokenAccount: ?Account) => void,
   value: ?AccountLike,
 };
@@ -132,12 +133,14 @@ const RawSelectAccount = ({
   withSubAccounts,
   enforceHideEmptySubAccounts,
   filter,
+  enhance,
   t,
   ...props
 }: Props & { t: TFunction }) => {
   const [searchInputValue, setSearchInputValue] = useState("");
+  const mappedAccounts = enhance ? accounts.map(enhance) : accounts;
 
-  const filtered: Account[] = filter ? accounts.filter(filter) : accounts;
+  const filtered: Account[] = filter ? mappedAccounts.filter(filter) : mappedAccounts;
   const all = withSubAccounts
     ? flattenAccounts(filtered, { enforceHideEmptySubAccounts })
     : filtered;
@@ -154,11 +157,11 @@ const RawSelectAccount = ({
       } else {
         const { account } = option;
         const parentAccount =
-          account.type !== "Account" ? accounts.find(a => a.id === account.parentId) : null;
+          account.type !== "Account" ? mappedAccounts.find(a => a.id === account.parentId) : null;
         onChange(account, parentAccount);
       }
     },
-    [accounts, onChange],
+    [mappedAccounts, onChange],
   );
 
   const manualFilter = useCallback(
