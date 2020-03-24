@@ -3,7 +3,7 @@
 import React from "react";
 import TrackPage from "~/renderer/analytics/TrackPage";
 import Box from "~/renderer/components/Box";
-import { Trans, withTranslation } from "react-i18next";
+import { Trans } from "react-i18next";
 import Button from "~/renderer/components/Button";
 import DeviceAction from "~/renderer/components/DeviceAction";
 import { action } from "~/renderer/components/DeviceAction/actions/manager";

@@ -10,7 +10,7 @@ const Swap = () => {
   const [providers, setProviders] = useState(null);
   const [showLandingPage, setShowLandingPage] = useState(true);
   const [skipDeviceAction, setSkipDeviceAction] = useState(false);
-  const [result, setResult] = useState(null);
+  const [installedApps, setInstalledApps] = useState(null); // TODO do we need more than this?
 
   useEffect(() => {
     async function fetchProviders() {
@@ -20,8 +20,20 @@ const Swap = () => {
     fetchProviders();
   }, [setProviders]);
 
-  const showDeviceAction = !result && !skipDeviceAction;
-  const showInstallSwap = result && !result.installedApps.includes("swap"); // FIXME Or whatever name this app has
+  const onSetResult = useCallback(
+    ({ result }) => {
+      if (result) {
+        const { installed } = result;
+        setInstalledApps(installed);
+      }
+    },
+    [setInstalledApps],
+  );
+
+  const showDeviceAction = !installedApps && !skipDeviceAction;
+  const showInstallSwap =
+    !showDeviceAction && installedApps && !installedApps.some(a => a.name === "Bitcoin");
+  // ↑ FIXME Use swap once we have swap app for real
 
   const onContinue = useCallback(() => {
     setShowLandingPage(false);
@@ -30,11 +42,18 @@ const Swap = () => {
   return showLandingPage ? (
     <Landing providers={providers} onContinue={onContinue} />
   ) : showDeviceAction ? (
-    <Connect setResult={setResult} setSkipDeviceAction={setSkipDeviceAction} />
+    <Connect setResult={onSetResult} setSkipDeviceAction={setSkipDeviceAction} />
   ) : showInstallSwap ? (
-    <div> [Install the missing app illustration] </div>
+    <div> [Install the missing swap app illustration] </div>
   ) : (
-    <Form providers={providers} />
+    <Form
+      providers={providers}
+      installedApps={[
+        { name: "Bitcoin", updated: true },
+        { name: "Ethereum", updated: false },
+        { name: "XRP", updated: true },
+      ]}
+    />
   );
 };
 

@@ -31,7 +31,7 @@ const StepDevice = ({ swap, onContinue }: { swap: SwapOperation, onContinue: any
 
   return (
     <Box>
-      <Text>{"initSwap is running, validate on device, fixme"}</Text>
+      <Text>{"initSwap is running, validate on device"}</Text>
     </Box>
   );
 };

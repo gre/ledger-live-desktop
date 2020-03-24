@@ -128,7 +128,10 @@
     },
     "start": {
       "from": "Source account",
-      "to": "Destination account"
+      "to": "Destination account",
+      "currency": "Select a crypto asset",
+      "addAccount": "Add Account",
+      "openManager": "Open Manager"
     },
     "modal": {
       "title": "Summary",

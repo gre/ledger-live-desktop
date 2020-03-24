@@ -3,6 +3,7 @@
 import React from "react";
 import styled from "styled-components";
 import IconArrowDown from "~/renderer/icons/ArrowDown";
+import type { ThemedComponent } from "~/renderer/styles/StyleProvider";
 
 const ArrowSeparatorWrapper: ThemedComponent<{}> = styled.div`
   display: flex;

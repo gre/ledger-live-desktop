@@ -36,12 +36,7 @@ const StepSummary = ({
   const fromUnit = getAccountUnit(fromAccount);
   const toUnit = getAccountUnit(toAccount);
 
-  // TODO this seems pretty stupid to have to do this, perhaps put this in the exchange or something
-  // I hate looking at it
-  const toAmount = fromAmount
-    .div(BigNumber(10).pow(fromUnit.magnitude))
-    .times(exchangeRate.rate)
-    .times(BigNumber(10).pow(toUnit.magnitude));
+  const toAmount = fromAmount.times(exchangeRate.rate).times(BigNumber(10).pow(toUnit.magnitude));
 
   return (
     <Box>
