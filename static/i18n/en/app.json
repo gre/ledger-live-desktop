@@ -119,6 +119,10 @@
   },
   "swap": {
     "title": "Swap",
+    "tabs": {
+      "exchange": "Exchange",
+      "history": "History"
+    },
     "landing": {
       "title": "Swap your assets",
       "description": "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Suspendisse sit amet mi quam. Etiam semper justo et augue dignissim placerat non at risus.",
@@ -127,7 +131,9 @@
       "sorry": "Sorry, Swap isn’t available in your country :("
     },
     "start": {
-      "from": "Source account",
+      "from_amount": "Amount to swap",
+      "from_currency": "Asset type",
+      "from": "Account",
       "to": "Destination account",
       "currency": "Select a crypto asset",
       "addAccount": "Add Account",

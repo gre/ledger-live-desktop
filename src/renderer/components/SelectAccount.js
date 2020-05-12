@@ -22,7 +22,7 @@ import CryptoCurrencyIcon from "~/renderer/components/CryptoCurrencyIcon";
 import Ellipsis from "~/renderer/components/Ellipsis";
 
 const mapStateToProps = (state, { accounts }) => ({
-  accounts: accounts || shallowAccountsSelector,
+  accounts: accounts || shallowAccountsSelector(state),
 });
 
 const Tick = styled.div`
@@ -84,10 +84,12 @@ const AccountOption = React.memo(function AccountOption({
   account,
   isValue,
   disabled,
+  hideAmount,
 }: {
   account: AccountLike,
   isValue?: boolean,
   disabled?: boolean,
+  hideAmount?: boolean,
 }) {
   const currency = getAccountCurrency(account);
   const unit = getAccountUnit(account);
@@ -102,20 +104,31 @@ const AccountOption = React.memo(function AccountOption({
           {name}
         </Ellipsis>
       </div>
-      <Box>
-        <FormattedVal color="palette.text.shade60" val={account.balance} unit={unit} showCode />
-      </Box>
+      {!hideAmount ? (
+        <Box>
+          <FormattedVal
+            color="palette.text.shade60"
+            val={account.balance}
+            unit={unit}
+            showCode
+            disableRounding
+          />
+        </Box>
+      ) : null}
     </Box>
   );
 });
 
-const renderValue = ({ data }: { data: Option }) =>
-  data.account ? <AccountOption account={data.account} isValue /> : null;
+const renderValue = hideAmount => ({ data }: { data: Option }) =>
+  data.account ? <AccountOption hideAmount={hideAmount} account={data.account} isValue /> : null;
 
-const renderOption = ({ data }: { data: Option }) =>
-  data.account ? <AccountOption account={data.account} disabled={!data.matched} /> : null;
+const renderOption = hideAmount => ({ data }: { data: Option }) =>
+  data.account ? (
+    <AccountOption hideAmount={hideAmount} account={data.account} disabled={!data.matched} />
+  ) : null;
 
 type OwnProps = {
+  hideBalance?: boolean,
   withSubAccounts?: boolean,
   enforceHideEmptySubAccounts?: boolean,
   filter?: AccountLike => boolean,
@@ -134,6 +147,7 @@ const RawSelectAccount = ({
   withSubAccounts,
   enforceHideEmptySubAccounts,
   filter,
+  hideAmount,
   t,
   ...props
 }: Props & { t: TFunction }) => {
@@ -188,8 +202,8 @@ const RawSelectAccount = ({
       value={selectedOption}
       options={structuredResults}
       getOptionValue={getOptionValue}
-      renderValue={renderValue}
-      renderOption={renderOption}
+      renderValue={renderValue(hideAmount)}
+      renderOption={renderOption(hideAmount)}
       onInputChange={v => setSearchInputValue(v)}
       inputValue={searchInputValue}
       filterOption={false}

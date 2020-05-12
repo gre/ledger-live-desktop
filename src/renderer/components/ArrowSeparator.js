@@ -2,16 +2,17 @@
 
 import React from "react";
 import styled from "styled-components";
-import IconArrowDown from "~/renderer/icons/ArrowDown";
+import IconTransfer from "~/renderer/icons/Transfer";
 import type { ThemedComponent } from "~/renderer/styles/StyleProvider";
 
 const ArrowSeparatorWrapper: ThemedComponent<{}> = styled.div`
   display: flex;
+  flex-direction: column;
   align-items: center;
-  margin: 10px 0px;
+  margin: 0 23px;
   & > div {
     flex: 1;
-    height: 1px;
+    width: 1px;
     background: ${p => p.theme.colors.palette.divider};
     &:nth-of-type(2) {
       color: ${p => p.theme.colors.palette.primary.main};
@@ -32,7 +33,7 @@ const ArrowSeparator = () => (
   <ArrowSeparatorWrapper>
     <div />
     <div>
-      <IconArrowDown size={16} />
+      <IconTransfer size={16} />
     </div>
     <div />
   </ArrowSeparatorWrapper>

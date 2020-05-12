@@ -28,7 +28,7 @@ import InstallSuccessBanner from "./InstallSuccessBanner";
 import SearchBox from "../../accounts/AccountList/SearchBox";
 
 // sticky top bar with extra width to cover card boxshadow underneath
-const StickyTabBar = styled.div`
+export const StickyTabBar = styled.div`
   position: sticky;
   background-color: ${p => p.theme.colors.palette.background.default};
   top: -${p => p.theme.space[3]}px;
