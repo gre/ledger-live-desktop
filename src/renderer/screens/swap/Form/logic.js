@@ -4,6 +4,8 @@ import { BigNumber } from "bignumber.js";
 import type { Exchange, ExchangeRate } from "@ledgerhq/live-common/lib/swap/types";
 import type { CryptoCurrency, TokenCurrency } from "@ledgerhq/live-common/lib/types";
 import { accountWithMandatoryTokens, getAccountCurrency } from "@ledgerhq/live-common/lib/account";
+import { getAccountBridge } from "@ledgerhq/live-common/lib/bridge";
+import { NotEnoughBalance } from "@ledgerhq/errors";
 
 export type SwapState = {
   swap: {
@@ -45,9 +47,11 @@ export const initState: (AccountLike[]) => SwapState = ({ accounts, selectableCu
 };
 
 export const reducer = (state, { type, payload }) => {
+  let newState;
+
   switch (type) {
     case "patchExchange":
-      return {
+      newState = {
         ...state,
         swap: {
           ...state.swap,
@@ -56,24 +60,28 @@ export const reducer = (state, { type, payload }) => {
         },
         error: null,
       };
+      break;
     case "fetchRates":
-      return { ...state, isLoading: true, error: null };
+      newState = { ...state, isLoading: true, error: null };
+      break;
     case "setRate":
-      return {
+      newState = {
         ...state,
         swap: { ...state.swap, exchangeRate: payload.rate },
         isLoading: false,
         error: null,
       };
+      break;
     case "setFromCurrency": {
       const fromAccount = state.accounts.find(a => a.currency === payload.fromCurrency);
       const toCurrency = state.selectableCurrencies.find(c => c !== payload.fromCurrency);
       const toAccount = state.accounts.find(a => a.currency === toCurrency);
 
-      return {
+      newState = {
         ...state,
         swap: {
           ...state.swap,
+          exchangeRate: null,
           exchange: {
             ...state.swap.exchange,
             fromCurrency: payload.fromCurrency,
@@ -85,9 +93,10 @@ export const reducer = (state, { type, payload }) => {
         validFrom: state.accounts.filter(a => payload.fromCurrency === a.currency),
         validTo: state.accounts.filter(a => toCurrency === a.currency),
       };
+      break;
     }
     case "setFromAccount": {
-      return {
+      newState = {
         ...state,
         swap: {
           ...state.swap,
@@ -97,6 +106,23 @@ export const reducer = (state, { type, payload }) => {
           },
         },
       };
+      break;
+    }
+    case "setFromAmount": {
+      newState = {
+        ...state,
+        swap: {
+          ...state.swap,
+          exchange: {
+            ...state.swap.exchange,
+            fromAmount: payload.fromAmount,
+          },
+        },
+        error: payload.fromAmount.gt(state.swap.exchange.fromAccount.balance)
+          ? new NotEnoughBalance()
+          : undefined,
+      };
+      break;
     }
     case "setToCurrency": {
       const accounts = state.validFrom.filter(a => {
@@ -106,11 +132,12 @@ export const reducer = (state, { type, payload }) => {
 
       const validTo = accounts.map(a => accountWithMandatoryTokens(a, [payload.toCurrency]));
 
-      return {
+      newState = {
         ...state,
         validTo,
         swap: {
           ...state.swap,
+          exchangeRate: null,
           exchange: {
             ...state.swap.exchange,
             toCurrency: payload.toCurrency,
@@ -118,10 +145,40 @@ export const reducer = (state, { type, payload }) => {
           },
         },
       };
+      break;
+    }
+    case "toggleUseAllAmount": {
+      // FIXME what about parents, what about everything
+      const useAllAmount = !state.swap.useAllAmount;
+      let fromAmount = BigNumber(0);
+      if (useAllAmount) {
+        fromAmount = state.swap.exchange.fromAccount.balance;
+      }
+      newState = {
+        ...state,
+        swap: {
+          ...state.swap,
+          useAllAmount,
+          exchange: {
+            ...state.swap.exchange,
+            fromAmount,
+          },
+        },
+      };
+      break;
     }
     case "setError":
-      return { ...state, isLoading: false, error: payload.error };
+      newState = { ...state, isLoading: false, error: payload.error };
+      break;
     default:
       throw new Error();
   }
+
+  // Fixme, clean this. Allow/Disallow request rates;
+  const { swap, error } = newState;
+  const { exchange, exchangeRate } = swap;
+  const { fromAmount } = exchange;
+
+  newState.canRequestRates = !error && !exchangeRate && fromAmount.gt(0);
+  return newState;
 };

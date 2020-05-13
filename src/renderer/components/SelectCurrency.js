@@ -19,6 +19,7 @@ type Props<C: Currency> = {
   autoFocus?: boolean,
   minWidth?: number,
   width?: number,
+  renderOptionOverride?: (option: Option) => any,
 };
 
 const getOptionValue = c => c.id;
@@ -32,6 +33,7 @@ const SelectCurrency = <C: Currency>({
   autoFocus,
   minWidth,
   width,
+  renderOptionOverride,
 }: Props<C>) => {
   const { t } = useTranslation();
   const devMode = useEnv("MANAGER_DEV_MODE");
@@ -72,8 +74,8 @@ const SelectCurrency = <C: Currency>({
       options={filteredOptions}
       filterOption={false}
       getOptionValue={getOptionValue}
-      renderOption={renderOption}
-      renderValue={renderOption}
+      renderOption={renderOptionOverride || renderOption}
+      renderValue={renderOptionOverride || renderOption}
       onInputChange={v => setSearchInputValue(v)}
       inputValue={searchInputValue}
       placeholder={placeholder || t("common.selectCurrency")}

@@ -45,12 +45,7 @@ const Swap = () => {
   ) : (
     <Form
       providers={providers}
-      installedApps={[
-        { name: "Bitcoin", updated: true },
-        { name: "Litecoin", updated: true },
-        { name: "Ethereum", updated: false },
-        { name: "XRP", updated: true },
-      ]}
+      installedApps={installedApps}
     />
   );
 };

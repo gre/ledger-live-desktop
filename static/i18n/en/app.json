@@ -130,14 +130,26 @@
       "link": "More about Swap",
       "sorry": "Sorry, Swap isn’t available in your country :("
     },
-    "start": {
-      "from_amount": "Amount to swap",
-      "from_currency": "Asset type",
-      "from": "Account",
-      "to": "Destination account",
-      "currency": "Select a crypto asset",
+    "form": {
+      "from": {
+        "title": "From",
+        "account": "Account",
+        "amount": "Amount to swap",
+        "currency": "Asset type",
+        "balance": "Balance: {{balance}}"
+      },
+      "to": {
+        "title":  "To",
+        "account": "Destination account",
+        "amount": "I will receive",
+        "currency": "Asset type",
+        "addAccountCTA": "Add new account"
+      },
       "addAccount": "Add Account",
-      "openManager": "Open Manager"
+      "openManager": "Open Manager",
+      "noAccount": "You don't have {{currencyName}} accounts",
+      "noApp": "You don't have the {{currencyName}} app installed",
+      "helpCTA": "What is Swap?"
     },
     "modal": {
       "title": "Summary",

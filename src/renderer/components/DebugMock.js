@@ -67,7 +67,11 @@ const helpfulEvents = [
     name: "result",
     event: {
       type: "result",
-      result: mockListAppsResult("Bitcoin", "Bitcoin", deviceInfo155),
+      result: mockListAppsResult(
+        "Bitcoin,Tron,Litecoin,Ethereum",
+        "Bitcoin,Tron,Litecoin",
+        deviceInfo155,
+      ),
     },
   },
   {

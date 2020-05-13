@@ -5,16 +5,20 @@ import Label from "~/renderer/components/Label";
 import { Trans } from "react-i18next";
 import SelectAccount from "~/renderer/components/SelectAccount";
 import InputCurrency from "~/renderer/components/InputCurrency";
-import React, { useCallback } from "react";
+import React from "react";
 import type { AccountLike, CryptoCurrency, TokenCurrency } from "@ledgerhq/live-common/lib/types";
 import { BigNumber } from "bignumber.js";
 import styled from "styled-components";
 import SelectCurrency from "~/renderer/components/SelectCurrency";
 import Text from "~/renderer/components/Text";
-import Price from "~/renderer/components/Price";
-import IconPlusSmall from "~/renderer/icons/PlusSmall";
-import { openModal } from "~/renderer/actions/modals";
-import { useDispatch } from "react-redux";
+import { formatCurrencyUnit } from "@ledgerhq/live-common/lib/currencies";
+import { getAccountUnit } from "@ledgerhq/live-common/lib/account";
+import type { Option } from "~/renderer/components/Select";
+import CryptoCurrencyIcon from "~/renderer/components/CryptoCurrencyIcon";
+import IconExclamationCircle from "~/renderer/icons/ExclamationCircle";
+import Tooltip from "~/renderer/components/Tooltip";
+import { colors } from "~/renderer/styles/theme";
+import Switch from "~/renderer/components/Switch";
 import { OptionNoAccounts, OptionNoApp, OptionOK } from "~/renderer/screens/swap/Form/index";
 
 const InputRight = styled(Box).attrs(() => ({
@@ -31,38 +35,23 @@ const Wrapper = styled(Box)`
   flex: 1;
 `;
 
-const AddAccount = styled.div`
-  display: flex;
-  cursor: pointer;
-  &:hover {
-    text-decoration: underline;
-  }
-  align-items: center;
-  border: 1px solid ${p => p.theme.colors.palette.divider};
-  height: 48px;
-  padding: 0 15px;
-  border-radius: 4px;
-  color: ${p => p.theme.colors.palette.primary.main};
-`;
-
-const SwapInputGroup = ({
+const From = ({
   currencies,
   validAccounts,
   currency,
-  fromCurrency,
   account,
   currenciesStatus,
   amount,
   onCurrencyChange,
   onAccountChange,
   onAmountChange,
+  onUseAllAmountToggle,
+  useAllAmount,
   isLoading,
-  rate,
   error,
 }: {
   currencies: Currency[],
   currency: CryptoCurrency | TokenCurrency,
-  fromCurrency: CryptoCurrency | TokenCurrency,
   account: AccountLike,
   currenciesStatus: { id: string, status: string }[],
   validAccounts: AccountLike[],
@@ -70,8 +59,9 @@ const SwapInputGroup = ({
   onCurrencyChange: (CryptoCurrency | TokenCurrency) => undefined,
   onAccountChange: AccountLike => undefined,
   onAmountChange?: BigNumber => undefined,
+  onUseAllAmountToggle?: () => undefined,
+  useAllAmount?: boolean,
   isLoading?: boolean,
-  rate?: BigNumber,
   error?: Error,
 }) => {
   const unit = currency && currency.units[0];
@@ -79,27 +69,23 @@ const SwapInputGroup = ({
     const status = currenciesStatus[currency.id];
     return status === "ok" ? (
       <OptionOK currency={currency} />
-    ) : status === "not-installed" ? (
+    ) : status === "no-accounts" ? (
+      <OptionNoAccounts currency={currency} />
+    ) : (
       <OptionNoApp currency={currency} />
-    ) : null;
+    );
   };
-  const dispatch = useDispatch();
-  const addAccount = useCallback(() => dispatch(openModal("MODAL_ADD_ACCOUNTS", { currency })), [
-    currency,
-    dispatch,
-  ]);
 
   return (
     <Wrapper flow={1} mb={3}>
       <Text mb={15} color="palette.text.shade100" ff="Inter|SemiBold" fontSize={5}>
-        <Trans i18nKey={`swap.form.to.title`} />
+        <Trans i18nKey={`swap.form.from.title`} />
       </Text>
       <Box>
         <Label mb={4}>
-          <Trans i18nKey={`swap.form.to.currency`} />
+          <Trans i18nKey={`swap.form.from.currency`} />
         </Label>
         <SelectCurrency
-          currenciesStatus={currenciesStatus}
           renderOptionOverride={renderOptionOverride}
           currencies={currencies}
           autoFocus={true}
@@ -109,54 +95,59 @@ const SwapInputGroup = ({
       </Box>
       <Box>
         <Label mb={4} mt={25}>
-          <Trans i18nKey={`swap.form.to.account`} />
+          <Trans i18nKey={`swap.form.from.account`} />
         </Label>
-        {validAccounts?.length ? (
-          <SelectAccount
-            hideAmount
-            withSubAccounts
-            filter={a => validAccounts.some(b => b.id === a.id)}
-            enforceHideEmptySubAccounts
-            autoFocus={true}
-            onChange={onAccountChange}
-            value={account}
-          />
-        ) : (
-          <AddAccount onClick={addAccount}>
-            <IconPlusSmall size={16} />
-            <Text ml={1} ff="Inter|SemiBold" fontSize={4}>
-              <Trans i18nKey={`swap.form.to.addAccountCTA`} />
-            </Text>
-          </AddAccount>
-        )}
+        <SelectAccount
+          hideAmount
+          withSubAccounts
+          filter={a => validAccounts.some(b => b.id === a.id)}
+          enforceHideEmptySubAccounts
+          autoFocus={true}
+          onChange={onAccountChange}
+          value={account}
+        />
       </Box>
       <Box>
-        <Label mb={4} mt={25}>
-          <Trans i18nKey={`swap.form.to.amount`} />
-        </Label>
+        <Box mt={25} horizontal alignItems="center" justifyContent="space-between">
+          <Label mb={4}>
+            <Trans i18nKey={`swap.form.from.amount`} />
+          </Label>
+          <Box horizontal alignItems="center">
+            <Text
+              color="palette.text.shade40"
+              ff="Inter|Medium"
+              fontSize={10}
+              style={{ paddingRight: 5 }}
+              onClick={onUseAllAmountToggle}
+            >
+              <Trans i18nKey="send.steps.details.useMax" />
+            </Text>
+            <Switch small isChecked={useAllAmount} onChange={onUseAllAmountToggle} />
+          </Box>
+        </Box>
         {unit ? (
           <>
             <InputCurrency
               error={error}
-              disabled
               loading={isLoading}
               key={unit.code}
               defaultUnit={unit}
               value={isLoading ? "" : amount}
+              disabled={useAllAmount}
               onChange={onAmountChange}
               renderRight={<InputRight>{unit.code}</InputRight>}
             />
-            {rate ? (
-              <Box mt={1}>
-                <Price
-                  withEquality
-                  from={fromCurrency}
-                  to={currency}
-                  rate={rate.div(BigNumber(10).pow(unit.magnitude))}
-                  color="palette.text.shade60"
-                  fontSize={2}
+            {!error ? (
+              <Text mt={1} color="palette.text.shade60" ff="Inter|Regular" fontSize={2}>
+                <Trans
+                  i18nKey={"swap.form.from.balance"}
+                  values={{
+                    balance: formatCurrencyUnit(getAccountUnit(account), account.balance, {
+                      showCode: true,
+                    }),
+                  }}
                 />
-              </Box>
+              </Text>
             ) : null}
           </>
         ) : null}
@@ -165,4 +156,4 @@ const SwapInputGroup = ({
   );
 };
 
-export default SwapInputGroup;
+export default From;
