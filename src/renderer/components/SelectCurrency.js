@@ -19,6 +19,7 @@ type Props<C: Currency> = {
   autoFocus?: boolean,
   minWidth?: number,
   width?: number,
+  rowHeight?: number,
   renderOptionOverride?: (option: Option) => any,
 };
 
@@ -33,6 +34,7 @@ const SelectCurrency = <C: Currency>({
   autoFocus,
   minWidth,
   width,
+  rowHeight = 47,
   renderOptionOverride,
 }: Props<C>) => {
   const { t } = useTranslation();
@@ -83,13 +85,14 @@ const SelectCurrency = <C: Currency>({
       onChange={onChangeCallback}
       minWidth={minWidth}
       width={width}
+      rowHeight={rowHeight}
     />
   );
 };
 
 const renderOption = ({ data: currency }: Option) => (
   <Box grow horizontal alignItems="center" flow={2}>
-    <CryptoCurrencyIcon currency={currency} size={16} />
+    <CryptoCurrencyIcon circle currency={currency} size={26} />
     <Box grow ff="Inter|SemiBold" color="palette.text.shade100" fontSize={4}>
       {`${currency.name} (${currency.ticker})`}
     </Box>

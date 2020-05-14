@@ -14,12 +14,8 @@ import Text from "~/renderer/components/Text";
 import { formatCurrencyUnit } from "@ledgerhq/live-common/lib/currencies";
 import { getAccountUnit } from "@ledgerhq/live-common/lib/account";
 import type { Option } from "~/renderer/components/Select";
-import CryptoCurrencyIcon from "~/renderer/components/CryptoCurrencyIcon";
-import IconExclamationCircle from "~/renderer/icons/ExclamationCircle";
-import Tooltip from "~/renderer/components/Tooltip";
-import { colors } from "~/renderer/styles/theme";
 import Switch from "~/renderer/components/Switch";
-import { OptionNoAccounts, OptionNoApp, OptionOK } from "~/renderer/screens/swap/Form/index";
+import { CurrencyOptionRow } from "~/renderer/screens/swap/Form/index";
 
 const InputRight = styled(Box).attrs(() => ({
   ff: "Inter|Medium",
@@ -67,13 +63,7 @@ const From = ({
   const unit = currency && currency.units[0];
   const renderOptionOverride = ({ data: currency }: Option) => {
     const status = currenciesStatus[currency.id];
-    return status === "ok" ? (
-      <OptionOK currency={currency} />
-    ) : status === "no-accounts" ? (
-      <OptionNoAccounts currency={currency} />
-    ) : (
-      <OptionNoApp currency={currency} />
-    );
+    return <CurrencyOptionRow circle currency={currency} status={status} />;
   };
 
   return (
@@ -86,6 +76,7 @@ const From = ({
           <Trans i18nKey={`swap.form.from.currency`} />
         </Label>
         <SelectCurrency
+          rowHeight={47}
           renderOptionOverride={renderOptionOverride}
           currencies={currencies}
           autoFocus={true}
@@ -107,7 +98,7 @@ const From = ({
           value={account}
         />
       </Box>
-      <Box>
+      <Box style={{ minHeight: 120 }}>
         <Box mt={25} horizontal alignItems="center" justifyContent="space-between">
           <Label mb={4}>
             <Trans i18nKey={`swap.form.from.amount`} />
@@ -128,7 +119,7 @@ const From = ({
         {unit ? (
           <>
             <InputCurrency
-              error={error}
+              error={amount?.gt(0) && error}
               loading={isLoading}
               key={unit.code}
               defaultUnit={unit}

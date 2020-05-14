@@ -4,7 +4,6 @@ import { BigNumber } from "bignumber.js";
 import type { Exchange, ExchangeRate } from "@ledgerhq/live-common/lib/swap/types";
 import type { CryptoCurrency, TokenCurrency } from "@ledgerhq/live-common/lib/types";
 import { accountWithMandatoryTokens, getAccountCurrency } from "@ledgerhq/live-common/lib/account";
-import { getAccountBridge } from "@ledgerhq/live-common/lib/bridge";
 import { NotEnoughBalance } from "@ledgerhq/errors";
 
 export type SwapState = {
@@ -44,6 +43,13 @@ export const initState: (AccountLike[]) => SwapState = ({ accounts, selectableCu
     accounts,
     selectableCurrencies,
   };
+};
+
+export const canRequestRates = state => {
+  const { swap, error } = state;
+  const { exchange, exchangeRate } = swap;
+  const { fromAccount, toAccount, fromAmount } = exchange;
+  return !!(fromAccount && toAccount && fromAmount && !exchangeRate && !error);
 };
 
 export const reducer = (state, { type, payload }) => {
@@ -86,12 +92,14 @@ export const reducer = (state, { type, payload }) => {
             ...state.swap.exchange,
             fromCurrency: payload.fromCurrency,
             fromAccount,
+            fromAmount: BigNumber(0),
             toCurrency,
             toAccount,
           },
         },
         validFrom: state.accounts.filter(a => payload.fromCurrency === a.currency),
         validTo: state.accounts.filter(a => toCurrency === a.currency),
+        error: null,
       };
       break;
     }
@@ -113,6 +121,7 @@ export const reducer = (state, { type, payload }) => {
         ...state,
         swap: {
           ...state.swap,
+          exchangeRate: null,
           exchange: {
             ...state.swap.exchange,
             fromAmount: payload.fromAmount,
@@ -125,16 +134,18 @@ export const reducer = (state, { type, payload }) => {
       break;
     }
     case "setToCurrency": {
-      const accounts = state.validFrom.filter(a => {
+      const accounts = state.accounts.filter(a => {
         const mainToCurrency = payload.toCurrency.parentCurrency || payload.toCurrency;
         return getAccountCurrency(a).id === mainToCurrency.id;
       });
-
-      const validTo = accounts.map(a => accountWithMandatoryTokens(a, [payload.toCurrency]));
+      // FIXME probably need to do this for FROM too
+      const accountWithTokens = accounts.map(a =>
+        accountWithMandatoryTokens(a, [payload.toCurrency]),
+      );
 
       newState = {
         ...state,
-        validTo,
+        validTo: accountWithTokens,
         swap: {
           ...state.swap,
           exchangeRate: null,
@@ -147,38 +158,10 @@ export const reducer = (state, { type, payload }) => {
       };
       break;
     }
-    case "toggleUseAllAmount": {
-      // FIXME what about parents, what about everything
-      const useAllAmount = !state.swap.useAllAmount;
-      let fromAmount = BigNumber(0);
-      if (useAllAmount) {
-        fromAmount = state.swap.exchange.fromAccount.balance;
-      }
-      newState = {
-        ...state,
-        swap: {
-          ...state.swap,
-          useAllAmount,
-          exchange: {
-            ...state.swap.exchange,
-            fromAmount,
-          },
-        },
-      };
-      break;
-    }
     case "setError":
-      newState = { ...state, isLoading: false, error: payload.error };
-      break;
+      return { ...state, error: payload.error };
     default:
-      throw new Error();
+      return state;
   }
-
-  // Fixme, clean this. Allow/Disallow request rates;
-  const { swap, error } = newState;
-  const { exchange, exchangeRate } = swap;
-  const { fromAmount } = exchange;
-
-  newState.canRequestRates = !error && !exchangeRate && fromAmount.gt(0);
   return newState;
 };

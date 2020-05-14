@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useReducer } from "react";
 import uniq from "lodash/uniq";
-import { connect } from "react-redux";
+import { connect, useDispatch } from "react-redux";
 import { createStructuredSelector } from "reselect";
 import { Trans, withTranslation } from "react-i18next";
 import Card from "~/renderer/components/Box/Card";
@@ -17,7 +17,6 @@ import {
 } from "@ledgerhq/live-common/lib/data/cryptocurrencies";
 import type { App } from "@ledgerhq/live-common/lib/types/manager";
 import { initState, reducer } from "./logic";
-import { BigNumber } from "bignumber.js";
 import type { ThemedComponent } from "~/renderer/styles/StyleProvider";
 import styled from "styled-components";
 import Box from "~/renderer/components/Box";
@@ -32,6 +31,8 @@ import CryptoCurrencyIcon from "~/renderer/components/CryptoCurrencyIcon";
 import Tooltip from "~/renderer/components/Tooltip";
 import IconExclamationCircle from "~/renderer/icons/ExclamationCircle";
 import { colors } from "~/renderer/styles/theme";
+import { canRequestRates } from "~/renderer/screens/swap/Form/logic";
+import { openModal } from "~/renderer/actions/modals";
 
 const Footer: ThemedComponent<{}> = styled(Box)`
   align-items: center;
@@ -50,19 +51,26 @@ const Form = ({
   selectableCurrencies: [],
   installedApps: App[],
 }) => {
+  const reduxDispatch = useDispatch();
   const [state, dispatch] = useReducer(reducer, { accounts, selectableCurrencies }, initState);
   const patchExchange = useCallback(payload => dispatch({ type: "patchExchange", payload }), [
     dispatch,
   ]);
-  const { swap, canRequestRates, validFrom, validTo, isLoading, error } = state;
-  const { exchange, exchangeRate, useAllAmount } = swap;
+  const { swap, validFrom, validTo, isLoading, error } = state;
+  const { exchange, exchangeRate } = swap;
   const { fromAccount, toAccount, fromAmount, fromCurrency, toCurrency } = exchange;
+
+  const onStartSwap = useCallback(() => reduxDispatch(openModal("MODAL_SWAP", { swap })), [
+    swap,
+    reduxDispatch,
+  ]);
 
   useEffect(() => {
     let ignore = false;
     async function getRates() {
       getExchangeRates(exchange).then(
         rates => {
+          console.log({ rates });
           if (ignore) return;
           dispatch({ type: "setRate", payload: { rate: rates[0] } });
         },
@@ -72,18 +80,17 @@ const Form = ({
         },
       );
     }
-    if (!ignore && canRequestRates) {
+    if (!ignore && canRequestRates(state)) {
+      console.log("fetch rates");
       getRates();
-      dispatch({ type: "fetchRates" });
     }
 
     return () => {
       ignore = true;
     };
-  }, [exchange, canRequestRates, fromAccount, toAccount, fromAmount]);
+  }, [state, exchange, fromAccount, toAccount, fromAmount]);
 
-  const rate = fromAmount && exchangeRate && fromAmount.times(BigNumber(exchangeRate.rate));
-
+  const { magnitudeAwareRate } = exchangeRate || {};
   const currenciesWithAccounts = useMemo(() => accounts.map(({ currency }) => currency.id), [
     accounts,
   ]);
@@ -95,7 +102,7 @@ const Form = ({
         const mainCurrency = c.parentCurrency || c;
         return a.name === mainCurrency.managerAppName && a.updated;
       });
-      let status = "not-installed";
+      let status = "no-app";
       if (installedApp) {
         if (currenciesWithAccounts.includes(c.id)) {
           status = "ok";
@@ -129,7 +136,7 @@ const Form = ({
             error={error}
             currencies={selectableCurrencies}
             onCurrencyChange={onSetFromCurrency}
-            useAllAmount={useAllAmount}
+            useAllAmount={false}
             validAccounts={validFrom}
             onUseAllAmountToggle={() => dispatch({ type: "toggleUseAllAmount" })}
             onAccountChange={fromAccount =>
@@ -144,13 +151,11 @@ const Form = ({
             currenciesStatus={currenciesStatus}
             isLoading={isLoading}
             account={toAccount}
-            amount={rate}
+            amount={fromAmount.times(magnitudeAwareRate)}
             currency={toCurrency}
             fromCurrency={fromCurrency}
-            rate={rate}
-            currencies={selectableCurrencies.filter(
-              c => c !== fromCurrency && currenciesStatus[c.id] !== "no-accounts",
-            )}
+            rate={magnitudeAwareRate}
+            currencies={selectableCurrencies.filter(c => c !== fromCurrency)}
             onCurrencyChange={toCurrency =>
               dispatch({ type: "setToCurrency", payload: { toCurrency } })
             }
@@ -168,69 +173,58 @@ const Form = ({
             }}
             label={<Trans i18nKey={`swap.form.helpCTA`} />}
           />
-          <Button primary>{"Exchange"}</Button>
+          <Button onClick={onStartSwap} primary disabled={!exchangeRate}>
+            {"Exchange"}
+          </Button>
         </Footer>
       </Card>
     </>
   );
 };
 
-export const OptionOK = ({ currency }: { currency: TokenCurrency | CryptoCurrency }) => (
-  <Box grow horizontal alignItems="center" flow={2}>
-    <CryptoCurrencyIcon currency={currency} size={16} />
-    <Box grow ff="Inter|SemiBold" color="palette.text.shade100" fontSize={4}>
-      {`${currency.name} (${currency.ticker})`}
-    </Box>
-  </Box>
-);
+type CurrencyOptionStatus = "ok" | "no-accounts" | "no-apps";
+export const CurrencyOptionRow = ({
+  status,
+  circle,
+  currency,
+}: {
+  status: CurrencyOptionStatus,
+  circle?: boolean,
+  currency: TokenCurrency | CryptoCurrency,
+}) => {
+  const notOK = status !== "ok";
 
-export const OptionNoAccounts = ({ currency }: { currency: TokenCurrency | CryptoCurrency }) => (
-  <Box grow horizontal alignItems="center" flow={2}>
-    <Box style={{ opacity: 0.2 }}>
-      <CryptoCurrencyIcon currency={currency} size={16} />
-    </Box>
-    <Box
-      style={{ opacity: 0.2 }}
-      grow
-      ff="Inter|SemiBold"
-      color="palette.text.shade100"
-      fontSize={4}
-    >
-      {`${currency.name} (${currency.ticker})`}
-    </Box>
-    <Box style={{ marginRight: -23 }} alignItems={"flex-end"}>
-      <Tooltip
-        content={<Trans i18nKey="swap.form.noAccount" values={{ currencyName: currency.name }} />}
+  return (
+    <Box grow horizontal alignItems="center" flow={2}>
+      <CryptoCurrencyIcon
+        inactive={notOK}
+        circle={circle}
+        currency={currency}
+        size={circle ? 26 : 16}
+      />
+      <Box
+        grow
+        ff="Inter|SemiBold"
+        color="palette.text.shade100"
+        fontSize={4}
+        style={{ opacity: notOK ? 0.2 : 1 }}
       >
-        <IconExclamationCircle color={colors.orange} size={16} />
-      </Tooltip>
+        {`${currency.name} (${currency.ticker})`}
+      </Box>
+      {notOK ? (
+        <Box style={{ marginRight: -23 }} alignItems={"flex-end"}>
+          <Tooltip
+            content={
+              <Trans i18nKey={`swap.form.${status}`} values={{ currencyName: currency.name }} />
+            }
+          >
+            <IconExclamationCircle color={colors.orange} size={16} />
+          </Tooltip>
+        </Box>
+      ) : null}
     </Box>
-  </Box>
-);
-
-export const OptionNoApp = ({ currency }: { currency: TokenCurrency | CryptoCurrency }) => (
-  <Box grow horizontal alignItems="center" flow={2}>
-    <Box style={{ opacity: 0.2 }}>
-      <CryptoCurrencyIcon currency={currency} size={16} />
-    </Box>
-    <Box
-      style={{ opacity: 0.2 }}
-      grow
-      ff="Inter|SemiBold"
-      color="palette.text.shade100"
-      fontSize={4}
-    >
-      {`${currency.name} (${currency.ticker})`}
-    </Box>
-    <Box style={{ marginRight: -23 }} alignItems={"flex-end"}>
-      <Tooltip
-        content={<Trans i18nKey="swap.form.noApp" values={{ currencyName: currency.name }} />}
-      >
-        <IconExclamationCircle color={colors.orange} size={16} />
-      </Tooltip>
-    </Box>
-  </Box>
-);
+  );
+};
 
 const selectableCurrenciesSelector = (state, props) => {
   const { providers } = props;

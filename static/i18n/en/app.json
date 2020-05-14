@@ -147,9 +147,9 @@
       },
       "addAccount": "Add Account",
       "openManager": "Open Manager",
-      "noAccount": "You don't have {{currencyName}} accounts",
-      "noApp": "You don't have the {{currencyName}} app installed",
-      "helpCTA": "What is Swap?"
+      "helpCTA": "What is Swap?",
+      "no-accounts": "You don't have {{currencyName}} accounts",
+      "no-app": "You don't have the {{currencyName}} app installed"
     },
     "modal": {
       "title": "Summary",
@@ -2148,7 +2148,7 @@
       "title": "A memo may be required when sending to this recipient"
     },
     "SwapExchangeRateOutOfBounds": {
-      "title": "Amount must be between {{from}} {{minAmountFrom}} and {{from}} {{maxAmountFrom}}"
+      "title": "Amount must be between {{unit}} {{minAmountFrom}} and {{unit}} {{maxAmountFrom}}"
     }
   }
 }

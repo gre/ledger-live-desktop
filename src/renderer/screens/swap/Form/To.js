@@ -15,7 +15,7 @@ import Price from "~/renderer/components/Price";
 import IconPlusSmall from "~/renderer/icons/PlusSmall";
 import { openModal } from "~/renderer/actions/modals";
 import { useDispatch } from "react-redux";
-import { OptionNoAccounts, OptionNoApp, OptionOK } from "~/renderer/screens/swap/Form/index";
+import { CurrencyOptionRow } from "~/renderer/screens/swap/Form";
 
 const InputRight = styled(Box).attrs(() => ({
   ff: "Inter|Medium",
@@ -75,14 +75,11 @@ const SwapInputGroup = ({
   error?: Error,
 }) => {
   const unit = currency && currency.units[0];
-  const renderOptionOverride = ({ data: currency }: Option) => {
+  const renderOptionOverride = ({ data: currency }: CurrencyOptionRow) => {
     const status = currenciesStatus[currency.id];
-    return status === "ok" ? (
-      <OptionOK currency={currency} />
-    ) : status === "not-installed" ? (
-      <OptionNoApp currency={currency} />
-    ) : null;
+    return <CurrencyOptionRow circle currency={currency} status={status} />;
   };
+
   const dispatch = useDispatch();
   const addAccount = useCallback(() => dispatch(openModal("MODAL_ADD_ACCOUNTS", { currency })), [
     currency,
@@ -105,6 +102,7 @@ const SwapInputGroup = ({
           autoFocus={true}
           onChange={onCurrencyChange}
           value={currency}
+          rowHeight={47}
         />
       </Box>
       <Box>
@@ -152,7 +150,7 @@ const SwapInputGroup = ({
                   withEquality
                   from={fromCurrency}
                   to={currency}
-                  rate={rate.div(BigNumber(10).pow(unit.magnitude))}
+                  rate={rate}
                   color="palette.text.shade60"
                   fontSize={2}
                 />

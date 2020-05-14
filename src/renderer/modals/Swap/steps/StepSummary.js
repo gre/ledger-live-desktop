@@ -16,17 +16,16 @@ import LinkWithExternalIcon from "~/renderer/components/LinkWithExternalIcon";
 import CheckBox from "~/renderer/components/CheckBox";
 import React from "react";
 import type { SwapOperation } from "@ledgerhq/live-common/lib/swap/types";
-import { BigNumber } from "bignumber.js";
 import Button from "~/renderer/components/Button";
 
 const StepSummary = ({
   swap,
   checkedDisclaimer,
-  setCheckedDisclaimer,
+  onSwitchAccept,
 }: {
   swap: SwapOperation,
   checkedDisclaimer: boolean,
-  setCheckedDisclaimer: boolean => undefined,
+  onSwitchAccept: () => undefined,
 }) => {
   const { exchange, exchangeRate } = swap;
   const { fromAccount, toAccount, fromAmount } = exchange;
@@ -36,7 +35,7 @@ const StepSummary = ({
   const fromUnit = getAccountUnit(fromAccount);
   const toUnit = getAccountUnit(toAccount);
 
-  const toAmount = fromAmount.times(exchangeRate.rate).times(BigNumber(10).pow(toUnit.magnitude));
+  const toAmount = fromAmount.times(exchangeRate.magnitudeAwareRate);
 
   return (
     <Box>
@@ -91,13 +90,8 @@ const StepSummary = ({
           <LinkWithExternalIcon onClick={undefined} label={exchangeRate.provider} />
         </Text>
       </Box>
-      <Box
-        mt={6}
-        horizontal
-        alignItems="center"
-        onClick={() => setCheckedDisclaimer(!checkedDisclaimer)}
-      >
-        <CheckBox isChecked={checkedDisclaimer} />
+      <Box mt={6} horizontal alignItems="center" onClick={onSwitchAccept}>
+        <CheckBox onClick={onSwitchAccept} isChecked={checkedDisclaimer} />
         <Text ff="Inter|SemiBold" fontSize={4} style={{ marginLeft: 12, flex: 1 }}>
           <Trans i18nKey="swap.modal.disclaimer" />
         </Text>

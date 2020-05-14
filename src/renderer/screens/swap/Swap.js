@@ -9,7 +9,12 @@ import Connect from "~/renderer/screens/swap/Connect";
 const Swap = () => {
   const [providers, setProviders] = useState(null);
   const [showLandingPage, setShowLandingPage] = useState(true);
-  const [installedApps, setInstalledApps] = useState(null); // TODO do we need more than this?
+  const [installedApps, setInstalledApps] = useState([
+    { name: "Bitcoin", updated: true },
+    { name: "Litecoin", updated: true },
+    { name: "Ethereum", updated: false },
+    { name: "Tron", updated: true },
+  ]); // TODO Use real listApps when speculos supports it/we have swap on manager
 
   useEffect(() => {
     async function fetchProviders() {
@@ -43,10 +48,7 @@ const Swap = () => {
   ) : showInstallSwap ? (
     <div> [Install the missing swap app illustration] </div>
   ) : (
-    <Form
-      providers={providers}
-      installedApps={installedApps}
-    />
+    <Form providers={providers} installedApps={installedApps} />
   );
 };
 
