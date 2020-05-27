@@ -47,6 +47,12 @@ export const urls = {
   cosmosStakingRewards:
     "https://support.ledger.com/hc/en-us/articles/360014339340-Earn-Cosmos-staking-rewards",
 
+  // FIXME where do we maintain these urls
+  swap: {
+    providers: {
+      changelly: "asd",
+    },
+  },
   // Errors
   errors: {
     CantOpenDevice: "https://support.ledger.com/hc/en-us/articles/115005165269",

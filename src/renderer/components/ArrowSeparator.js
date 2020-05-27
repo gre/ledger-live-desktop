@@ -5,14 +5,13 @@ import styled from "styled-components";
 import IconTransfer from "~/renderer/icons/Transfer";
 import type { ThemedComponent } from "~/renderer/styles/StyleProvider";
 
-const ArrowSeparatorWrapper: ThemedComponent<{}> = styled.div`
+const ArrowSeparatorWrapper: ThemedComponent<{ horizontal: boolean }> = styled.div`
   display: flex;
-  flex-direction: column;
+  flex-direction: ${p => (p.horizontal ? "row" : "column")};
   align-items: center;
-  margin: 0 23px;
   & > div {
     flex: 1;
-    width: 1px;
+    ${p => (p.horizontal ? "height" : "width")}: 1px;
     background: ${p => p.theme.colors.palette.divider};
     &:nth-of-type(2) {
       color: ${p => p.theme.colors.palette.primary.main};
@@ -29,11 +28,21 @@ const ArrowSeparatorWrapper: ThemedComponent<{}> = styled.div`
   }
 `;
 
-const ArrowSeparator = () => (
-  <ArrowSeparatorWrapper>
+const ArrowSeparator = ({
+  onClick,
+  horizontal,
+  Icon = IconTransfer,
+  size = 16,
+}: {
+  onClick?: () => any,
+  horizontal?: boolean,
+  Icon?: any,
+  size?: number,
+}) => (
+  <ArrowSeparatorWrapper horizontal={!!horizontal} onClick={onClick}>
     <div />
     <div>
-      <IconTransfer size={16} />
+      <Icon size={size} />
     </div>
     <div />
   </ArrowSeparatorWrapper>

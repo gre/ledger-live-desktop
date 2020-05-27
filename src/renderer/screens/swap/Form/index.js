@@ -4,10 +4,10 @@ import React, { useCallback, useEffect, useMemo, useReducer } from "react";
 import uniq from "lodash/uniq";
 import { connect, useDispatch } from "react-redux";
 import { createStructuredSelector } from "reselect";
-import { Trans, withTranslation } from "react-i18next";
+import { Trans, useTranslation, withTranslation } from "react-i18next";
 import Card from "~/renderer/components/Box/Card";
-import { accountsSelector } from "~/renderer/reducers/accounts";
-import type { Account, CryptoCurrency, TokenCurrency } from "@ledgerhq/live-common/lib/types";
+import { shallowAccountsSelector } from "~/renderer/reducers/accounts";
+import type { AccountLike, Currency } from "@ledgerhq/live-common/lib/types";
 import getExchangeRates from "@ledgerhq/live-common/lib/swap/getExchangeRates";
 import ArrowSeparator from "~/renderer/components/ArrowSeparator";
 import { findTokenById } from "@ledgerhq/live-common/lib/data/tokens";
@@ -15,24 +15,33 @@ import {
   findCryptoCurrencyById,
   isCurrencySupported,
 } from "@ledgerhq/live-common/lib/data/cryptocurrencies";
-import type { App } from "@ledgerhq/live-common/lib/types/manager";
-import { initState, reducer } from "./logic";
+import {
+  canRequestRates,
+  getCurrenciesWithStatus,
+  initState,
+  reducer,
+} from "@ledgerhq/live-common/lib/swap/logic";
+import { flattenAccounts, getAccountCurrency } from "@ledgerhq/live-common/lib/account";
+import type { InstalledItem } from "@ledgerhq/live-common/lib/apps";
 import type { ThemedComponent } from "~/renderer/styles/StyleProvider";
 import styled from "styled-components";
 import Box from "~/renderer/components/Box";
 import Button from "~/renderer/components/Button";
 import { openURL } from "~/renderer/linking";
+
 import { track } from "~/renderer/analytics/segment";
 import LabelWithExternalIcon from "~/renderer/components/LabelWithExternalIcon";
-
 import From from "~/renderer/screens/swap/Form/From";
 import To from "~/renderer/screens/swap/Form/To";
 import CryptoCurrencyIcon from "~/renderer/components/CryptoCurrencyIcon";
 import Tooltip from "~/renderer/components/Tooltip";
 import IconExclamationCircle from "~/renderer/icons/ExclamationCircle";
+import IconArrowRight from "~/renderer/icons/ArrowRight";
 import { colors } from "~/renderer/styles/theme";
-import { canRequestRates } from "~/renderer/screens/swap/Form/logic";
 import { openModal } from "~/renderer/actions/modals";
+import Text from "~/renderer/components/Text";
+import type { CurrencyStatus } from "@ledgerhq/live-common/lib/swap/logic";
+import useInterval from "~/renderer/hooks/useInterval";
 
 const Footer: ThemedComponent<{}> = styled(Box)`
   align-items: center;
@@ -41,47 +50,90 @@ const Footer: ThemedComponent<{}> = styled(Box)`
   padding: 20px;
 `;
 
+
+const isSameCurrencyFilter = currency => a => {
+  const accountCurrency = getAccountCurrency(a);
+  return (
+    currency &&
+    (currency === accountCurrency ||
+      (currency.type === "TokenCurrency" && currency.parentCurrency === accountCurrency))
+  );
+};
+
 const Form = ({
   accounts,
   selectableCurrencies,
   installedApps,
 }: {
-  accounts: Account[],
+  accounts: AccountLike[],
   onContinue: any,
-  selectableCurrencies: [],
-  installedApps: App[],
+  selectableCurrencies: Currency[],
+  installedApps: InstalledItem[],
 }) => {
+  const ratesExpirationThreshold = 120000; // FIXME
+  const { t } = useTranslation();
   const reduxDispatch = useDispatch();
-  const [state, dispatch] = useReducer(reducer, { accounts, selectableCurrencies }, initState);
+  const currenciesStatus = useMemo(
+    () =>
+      getCurrenciesWithStatus({
+        accounts,
+        installedApps,
+        selectableCurrencies,
+      }),
+    [accounts, installedApps, selectableCurrencies],
+  );
+  const okCurrencies = selectableCurrencies.filter(
+    c =>
+      (c.type === "TokenCurrency" || c.type === "CryptoCurrency") &&
+      currenciesStatus[c.id] === "ok",
+  );
+  const [state, dispatch] = useReducer(reducer, { okCurrencies }, initState);
   const patchExchange = useCallback(payload => dispatch({ type: "patchExchange", payload }), [
     dispatch,
   ]);
-  const { swap, validFrom, validTo, isLoading, error } = state;
+  const { swap, fromCurrency, toCurrency, ratesTimestamp, ratesExpired, error } = state;
   const { exchange, exchangeRate } = swap;
-  const { fromAccount, toAccount, fromAmount, fromCurrency, toCurrency } = exchange;
+  const { fromAccount, toAccount, fromAmount } = exchange;
 
   const onStartSwap = useCallback(() => reduxDispatch(openModal("MODAL_SWAP", { swap })), [
     swap,
     reduxDispatch,
   ]);
 
+  const validFrom = useMemo(() => accounts.filter(isSameCurrencyFilter(fromCurrency)), [
+    accounts,
+    fromCurrency,
+  ]);
+
+  const validTo = useMemo(() => accounts.filter(isSameCurrencyFilter(toCurrency)), [
+    accounts,
+    toCurrency,
+  ]);
+
+  const { magnitudeAwareRate } = exchangeRate || {};
+
+  useEffect(() => {
+    patchExchange({
+      fromAccount:
+        flattenAccounts(validFrom).find(a => getAccountCurrency(a) === fromCurrency) || null,
+    });
+  }, [fromCurrency, patchExchange, validFrom]);
+
+  useEffect(() => patchExchange({ toAccount: validTo[0] || null }), [patchExchange, validTo]);
+
   useEffect(() => {
     let ignore = false;
     async function getRates() {
-      getExchangeRates(exchange).then(
-        rates => {
-          console.log({ rates });
-          if (ignore) return;
-          dispatch({ type: "setRate", payload: { rate: rates[0] } });
-        },
-        error => {
-          if (ignore) return;
-          dispatch({ type: "setError", payload: { error } });
-        },
-      );
+      try {
+        const rates = await getExchangeRates(exchange);
+        if (ignore) return;
+        dispatch({ type: "setRate", payload: { rate: rates[0] } });
+      } catch (error) {
+        if (ignore) return;
+        dispatch({ type: "setError", payload: { error } });
+      }
     }
     if (!ignore && canRequestRates(state)) {
-      console.log("fetch rates");
       getRates();
     }
 
@@ -90,39 +142,15 @@ const Form = ({
     };
   }, [state, exchange, fromAccount, toAccount, fromAmount]);
 
-  const { magnitudeAwareRate } = exchangeRate || {};
-  const currenciesWithAccounts = useMemo(() => accounts.map(({ currency }) => currency.id), [
-    accounts,
-  ]);
+  // Re-fetch rates (if needed) every 2 minutes.
+  // useInterval(() => {
+  //   const now = new Date();
+  //   if (ratesTimestamp && now - ratesTimestamp > ratesExpirationThreshold) {
+  //     dispatch({ type: "expireRates" });
+  //   }
+  // }, 1000);
 
-  const currenciesStatus = useMemo(() => {
-    const statuses = {};
-    for (const c of selectableCurrencies) {
-      const installedApp = installedApps.some(a => {
-        const mainCurrency = c.parentCurrency || c;
-        return a.name === mainCurrency.managerAppName && a.updated;
-      });
-      let status = "no-app";
-      if (installedApp) {
-        if (currenciesWithAccounts.includes(c.id)) {
-          status = "ok";
-        } else {
-          status = "no-accounts";
-        }
-      }
-      statuses[c.id] = status;
-    }
-    return statuses;
-  }, [currenciesWithAccounts, installedApps, selectableCurrencies]);
-
-  const onSetFromCurrency = useCallback(
-    fromCurrency => {
-      if (currenciesStatus[fromCurrency.id] === "ok") {
-        dispatch({ type: "setFromCurrency", payload: { fromCurrency } });
-      }
-    },
-    [currenciesStatus],
-  );
+  if (!fromAccount) return null;
 
   return (
     <>
@@ -135,33 +163,31 @@ const Form = ({
             currency={fromCurrency}
             error={error}
             currencies={selectableCurrencies}
-            onCurrencyChange={onSetFromCurrency}
-            useAllAmount={false}
-            validAccounts={validFrom}
-            onUseAllAmountToggle={() => dispatch({ type: "toggleUseAllAmount" })}
-            onAccountChange={fromAccount =>
-              dispatch({ type: "setFromAccount", payload: { fromAccount } })
+            onCurrencyChange={fromCurrency =>
+              dispatch({ type: "setFromCurrency", payload: { fromCurrency } })
             }
+            useAllAmount={false}
+            onAccountChange={a => patchExchange({ fromAccount: a })}
             onAmountChange={fromAmount =>
               dispatch({ type: "setFromAmount", payload: { fromAmount } })
             }
+            validAccounts={validFrom}
           />
-          <ArrowSeparator />
-          <To
-            currenciesStatus={currenciesStatus}
-            isLoading={isLoading}
-            account={toAccount}
-            amount={fromAmount.times(magnitudeAwareRate)}
-            currency={toCurrency}
-            fromCurrency={fromCurrency}
-            rate={magnitudeAwareRate}
-            currencies={selectableCurrencies.filter(c => c !== fromCurrency)}
-            onCurrencyChange={toCurrency =>
-              dispatch({ type: "setToCurrency", payload: { toCurrency } })
-            }
-            onAccountChange={toAccount => patchExchange({ toAccount })}
-            validAccounts={validTo}
-          />
+          <ArrowSeparator Icon={IconArrowRight} />
+          {toCurrency && fromCurrency ? (
+            <To
+              currenciesStatus={currenciesStatus}
+              account={toAccount}
+              amount={fromAmount ? fromAmount.times(magnitudeAwareRate) : null}
+              currency={toCurrency}
+              fromCurrency={fromCurrency}
+              rate={magnitudeAwareRate}
+              currencies={selectableCurrencies.filter(c => c !== fromCurrency)}
+              onCurrencyChange={c => patchExchange({ toCurrency: c })}
+              onAccountChange={a => patchExchange({ toAccount: a })}
+              validAccounts={validTo}
+            />
+          ) : null}
         </Box>
         <Footer horizontal>
           <LabelWithExternalIcon
@@ -171,7 +197,7 @@ const Form = ({
               openURL("");
               track("More info on swap");
             }}
-            label={<Trans i18nKey={`swap.form.helpCTA`} />}
+            label={t("swap.form.helpCTA")}
           />
           <Button onClick={onStartSwap} primary disabled={!exchangeRate}>
             {"Exchange"}
@@ -182,15 +208,14 @@ const Form = ({
   );
 };
 
-type CurrencyOptionStatus = "ok" | "no-accounts" | "no-apps";
 export const CurrencyOptionRow = ({
   status,
   circle,
   currency,
 }: {
-  status: CurrencyOptionStatus,
+  status: CurrencyStatus,
   circle?: boolean,
-  currency: TokenCurrency | CryptoCurrency,
+  currency: Currency,
 }) => {
   const notOK = status !== "ok";
 
@@ -215,7 +240,11 @@ export const CurrencyOptionRow = ({
         <Box style={{ marginRight: -23 }} alignItems={"flex-end"}>
           <Tooltip
             content={
-              <Trans i18nKey={`swap.form.${status}`} values={{ currencyName: currency.name }} />
+              <Box p={1} style={{ maxWidth: 120 }}>
+                <Text fontSize={2}>
+                  <Trans i18nKey={`swap.form.${status}`} values={{ currencyName: currency.name }} />
+                </Text>
+              </Box>
             }
           >
             <IconExclamationCircle color={colors.orange} size={16} />
@@ -229,7 +258,11 @@ export const CurrencyOptionRow = ({
 const selectableCurrenciesSelector = (state, props) => {
   const { providers } = props;
   const allIds = uniq(
-    providers.reduce((ac, { supportedCurrencies }) => [...ac, ...supportedCurrencies], []),
+    providers.reduce(
+      // FIXME remove this livepeer support
+      (ac, { supportedCurrencies }) => [...ac, ...supportedCurrencies, "ethereum/erc20/livepeer"],
+      [],
+    ),
   );
 
   const tokenCurrencies = allIds.map(findTokenById).filter(Boolean);
@@ -241,7 +274,7 @@ const selectableCurrenciesSelector = (state, props) => {
 };
 
 const mapStateToProps = createStructuredSelector({
-  accounts: accountsSelector,
+  accounts: shallowAccountsSelector,
   selectableCurrencies: selectableCurrenciesSelector,
 });
 

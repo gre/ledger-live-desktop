@@ -61,7 +61,6 @@ const filterOption = o => (candidate, input) => {
   const { filter } = o;
   const passesFilter = c => !filter || filter(c);
   const selfMatches = defaultFilter(candidate, input) && passesFilter(candidate.data);
-
   if (selfMatches) return [selfMatches, true];
 
   if (candidate.data.type === "Account" && o.withSubAccounts) {
@@ -131,9 +130,11 @@ type OwnProps = {
   hideBalance?: boolean,
   withSubAccounts?: boolean,
   enforceHideEmptySubAccounts?: boolean,
+  enhance?: Account => Account,
   filter?: AccountLike => boolean,
   onChange: (account: ?AccountLike, tokenAccount: ?Account) => void,
   value: ?AccountLike,
+  hideAmount?: boolean,
 };
 
 type Props = OwnProps & {
@@ -148,13 +149,16 @@ const RawSelectAccount = ({
   enforceHideEmptySubAccounts,
   filter,
   hideAmount,
+  enhance,
   t,
   ...props
 }: Props & { t: TFunction }) => {
   const [searchInputValue, setSearchInputValue] = useState("");
+  const mappedAccounts = enhance ? accounts.map(enhance) : accounts;
+
   const all = withSubAccounts
-    ? flattenAccounts(accounts, { enforceHideEmptySubAccounts })
-    : accounts;
+    ? flattenAccounts(mappedAccounts, { enforceHideEmptySubAccounts })
+    : mappedAccounts;
 
   const selectedOption = value
     ? {
@@ -168,11 +172,11 @@ const RawSelectAccount = ({
       } else {
         const { account } = option;
         const parentAccount =
-          account.type !== "Account" ? all.find(a => a.id === account.parentId) : null;
+          account.type !== "Account" ? mappedAccounts.find(a => a.id === account.parentId) : null;
         onChange(account, parentAccount);
       }
     },
-    [all, onChange],
+    [mappedAccounts, onChange],
   );
 
   const manualFilter = useCallback(

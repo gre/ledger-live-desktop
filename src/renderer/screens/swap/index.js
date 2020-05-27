@@ -4,10 +4,10 @@ import React, { useState } from "react";
 import { StickyTabBar } from "~/renderer/screens/manager/AppsList/AppsList";
 import TabBar from "~/renderer/components/TabBar";
 import Swap from "~/renderer/screens/swap/Swap";
-import Text from "~/renderer/components/Text";
 import TrackPage from "~/renderer/analytics/TrackPage";
 import Box from "~/renderer/components/Box";
 import { Trans } from "react-i18next";
+import History from "~/renderer/screens/swap/History";
 
 const SwapOrSwapHistory = () => {
   const [tabIndex, setTabIndex] = useState(0);
@@ -28,7 +28,7 @@ const SwapOrSwapHistory = () => {
       <StickyTabBar>
         <TabBar tabs={["swap.tabs.exchange", "swap.tabs.history"]} onIndexChange={setTabIndex} />
       </StickyTabBar>
-      {tabIndex === 0 ? <Swap /> : <Text>wadus</Text>}
+      {tabIndex === 0 ? <Swap /> : <History />}
     </Box>
   );
 };

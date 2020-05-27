@@ -20,6 +20,7 @@ import MODAL_SETTINGS_ACCOUNT from "./SettingsAccount";
 import MODAL_RELEASE_NOTES from "./ReleaseNotes";
 import MODAL_EXCHANGE_CRYPTO_DEVICE from "./ExchangeDeviceConfirm";
 import MODAL_SWAP from "./Swap";
+import MODAL_SWAP_OPERATION_DETAILS from "./SwapOperationDetails";
 
 import MODAL_CLAIM_REWARDS from "./ClaimRewards";
 import MODAL_FREEZE from "./Freeze";
@@ -67,6 +68,9 @@ const modals: { [_: string]: React$ComponentType<any> } = {
   MODAL_COSMOS_UNDELEGATE,
   MODAL_EXCHANGE_CRYPTO_DEVICE,
   MODAL_SWAP,
+  MODAL_SWAP_OPERATION_DETAILS,
 };
+
+export const registeredModalNames: string[] = Object.keys(modals);
 
 export default modals;

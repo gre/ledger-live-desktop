@@ -2,24 +2,22 @@
 
 import type { Observable } from "rxjs";
 import { from } from "rxjs";
-import type { Exchange, ExchangeRate } from "@ledgerhq/live-common/lib/swap/types";
-import initSwap from "@ledgerhq/live-common/lib/swap/initSwap";
+import type {
+  ExchangeRate,
+  ExchangeRaw,
+  SwapRequestEvent,
+} from "@ledgerhq/live-common/lib/swap/types";
 import { fromExchangeRaw } from "@ledgerhq/live-common/lib/swap/serialization";
+import initSwap from "@ledgerhq/live-common/lib/swap/initSwap";
 
 type Input = {
-  exchange: Exchange,
+  exchange: ExchangeRaw,
   exchangeRate: ExchangeRate,
-  device: any,
+  deviceId: any,
 };
 
-type Result = {
-  address: string,
-  path: string,
-  publicKey: string,
-};
-
-const cmd = ({ exchange, exchangeRate, device }: Input): Observable<Result> => {
+const cmd = ({ exchange, exchangeRate, deviceId }: Input): Observable<SwapRequestEvent> => {
   const deserializedExchange = fromExchangeRaw(exchange);
-  return from(initSwap(deserializedExchange, exchangeRate, device.path));
+  return from(initSwap(deserializedExchange, exchangeRate, deviceId));
 };
 export default cmd;

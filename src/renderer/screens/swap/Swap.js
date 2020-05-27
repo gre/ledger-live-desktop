@@ -5,14 +5,18 @@ import { getProviders } from "@ledgerhq/live-common/lib/swap";
 import Landing from "~/renderer/screens/swap/Landing";
 import Form from "~/renderer/screens/swap/Form";
 import Connect from "~/renderer/screens/swap/Connect";
+import MissingSwapApp from "~/renderer/screens/swap/MissingSwapApp";
+import type { AvailableProvider } from "@ledgerhq/live-common/lib/swap/types";
+
+type MaybeProviders = ?(AvailableProvider[]);
 
 const Swap = () => {
-  const [providers, setProviders] = useState(null);
+  const [providers, setProviders] = useState<MaybeProviders>();
   const [showLandingPage, setShowLandingPage] = useState(true);
   const [installedApps, setInstalledApps] = useState([
     { name: "Bitcoin", updated: true },
     { name: "Litecoin", updated: true },
-    { name: "Ethereum", updated: false },
+    { name: "Ethereum", updated: true },
     { name: "Tron", updated: true },
   ]); // TODO Use real listApps when speculos supports it/we have swap on manager
 
@@ -25,11 +29,10 @@ const Swap = () => {
   }, [setProviders]);
 
   const onSetResult = useCallback(
-    ({ result }) => {
-      if (result) {
-        const { installed } = result;
-        setInstalledApps(installed);
-      }
+    data => {
+      if (!data) return;
+      const { installed } = data.result;
+      setInstalledApps(installed);
     },
     [setInstalledApps],
   );
@@ -46,7 +49,7 @@ const Swap = () => {
   ) : !installedApps ? (
     <Connect setResult={onSetResult} />
   ) : showInstallSwap ? (
-    <div> [Install the missing swap app illustration] </div>
+    <MissingSwapApp />
   ) : (
     <Form providers={providers} installedApps={installedApps} />
   );

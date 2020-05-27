@@ -20,6 +20,7 @@ type Props<C: Currency> = {
   minWidth?: number,
   width?: number,
   rowHeight?: number,
+  isDisabled?: Currency => boolean,
   renderOptionOverride?: (option: Option) => any,
 };
 
@@ -36,6 +37,7 @@ const SelectCurrency = <C: Currency>({
   width,
   rowHeight = 47,
   renderOptionOverride,
+  isDisabled,
 }: Props<C>) => {
   const { t } = useTranslation();
   const devMode = useEnv("MANAGER_DEV_MODE");
@@ -54,8 +56,15 @@ const SelectCurrency = <C: Currency>({
   );
 
   const options = useMemo(
-    () => cryptos.map(c => ({ ...c, value: c, label: c.name, currency: c })),
-    [cryptos],
+    () =>
+      cryptos.map(c => ({
+        ...c,
+        value: c,
+        label: c.name,
+        currency: c,
+        isDisabled: isDisabled ? isDisabled(c) : false,
+      })),
+    [isDisabled, cryptos],
   );
 
   const fuseOptions = {
