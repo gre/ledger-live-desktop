@@ -3,11 +3,14 @@
 import React, { PureComponent } from "react";
 import { Trans } from "react-i18next";
 import { getDeviceModel } from "@ledgerhq/devices";
+import type { InstalledItem } from "@ledgerhq/live-common/lib/apps/types";
 import type { DeviceInfo, FirmwareUpdateContext } from "@ledgerhq/live-common/lib/types/manager";
-import { command } from "~/renderer/commands";
 import type { Device } from "~/renderer/reducers/devices";
 import DisclaimerModal from "~/renderer/modals/DisclaimerModal";
-import UpdateModal, { hasResetStep } from "~/renderer/modals/UpdateFirmwareModal";
+import UpdateModal, {
+  hasResetStep,
+  hasAppsToBeReinstalled,
+} from "~/renderer/modals/UpdateFirmwareModal";
 import type { StepId } from "~/renderer/modals/UpdateFirmwareModal";
 import lte from "semver/functions/lte";
 import Text from "~/renderer/components/Text";
@@ -22,14 +25,15 @@ type Props = {
   device: Device,
   setFirmwareUpdateOpened: boolean => void,
   disableFirmwareUpdate?: boolean,
+  installed?: InstalledItem[],
+  onReset: (string[]) => void,
+  firmware: ?FirmwareUpdateContext,
+  error: ?Error,
 };
 
 type State = {
-  firmware: ?FirmwareUpdateContext,
   modal: ModalStatus,
   stepId: StepId,
-  ready: boolean,
-  error: ?Error,
 };
 
 const initialStepId = ({ deviceInfo, device }): StepId =>
@@ -40,11 +44,8 @@ const initialStepId = ({ deviceInfo, device }): StepId =>
     : "idCheck";
 
 const initializeState = (props: Props): State => ({
-  firmware: null,
-  modal: "closed",
+  modal: props.deviceInfo.isOSU ? "install" : "closed",
   stepId: initialStepId(props),
-  ready: false,
-  error: null,
 });
 
 class FirmwareUpdate extends PureComponent<Props, State> {
@@ -54,36 +55,18 @@ class FirmwareUpdate extends PureComponent<Props, State> {
 
   state = initializeState(this.props);
 
-  async componentDidMount() {
-    const { deviceInfo } = this.props;
-    try {
-      const firmware = await command("getLatestFirmwareForDevice")(deviceInfo).toPromise();
-      if (firmware && !this._unmounting) {
-        this.setState({
-          firmware,
-          ready: true,
-          modal: deviceInfo.isOSU ? "install" : "closed",
-          stepId: initialStepId(this.props),
-        });
-      }
-    } catch (error) {
-      this.setState({
-        ready: true,
-        modal: deviceInfo.isOSU ? "install" : "closed",
-        stepId: "finish",
-        error,
-      });
-    }
-  }
-
   componentWillUnmount() {
     this._unmounting = true;
   }
 
   _unmounting = false;
 
-  handleCloseModal = () => {
+  handleCloseModal = (reinstall?: boolean) => {
     this.setState({ modal: "closed" });
+    const { onReset, installed } = this.props;
+    if (reinstall && installed) {
+      onReset(installed.map(a => a.name));
+    }
   };
 
   handleDisclaimerModal = () => {
@@ -93,8 +76,20 @@ class FirmwareUpdate extends PureComponent<Props, State> {
   handleDisclaimerNext = () => this.setState({ modal: "install" });
 
   render() {
-    const { deviceInfo, device, setFirmwareUpdateOpened, disableFirmwareUpdate } = this.props;
-    const { firmware, modal, stepId, ready, error } = this.state;
+    const {
+      deviceInfo,
+      device,
+      setFirmwareUpdateOpened,
+      disableFirmwareUpdate,
+      installed,
+      firmware,
+      error,
+    } = this.props;
+    let { modal, stepId } = this.state;
+
+    if (error) {
+      stepId = "finish"; // need to display the final step with error
+    }
 
     if (!firmware) return null;
 
@@ -119,7 +114,8 @@ class FirmwareUpdate extends PureComponent<Props, State> {
           </Text>
         </Box>
 
-        {lte(deviceInfo.version, "1.4.2") && (
+        {// TODO move this knowledge in live-common
+        device.modelId === "nanoS" && lte(deviceInfo.version, "1.4.2") && (
           <Box px={4} horizontal alignItems="center" color="palette.primary.main">
             <IconInfoCircle size={12} />
             <Text style={{ marginLeft: 6 }} ff="Inter" fontSize={4}>
@@ -134,27 +130,29 @@ class FirmwareUpdate extends PureComponent<Props, State> {
           disabled={disableFirmwareUpdate}
         />
 
-        {ready ? (
-          <>
-            <DisclaimerModal
-              firmware={firmware}
-              deviceInfo={deviceInfo}
-              status={modal}
-              goToNextStep={this.handleDisclaimerNext}
-              onClose={this.handleCloseModal}
-            />
-            <UpdateModal
-              withResetStep={hasResetStep(deviceInfo, device.modelId)}
-              status={modal}
-              stepId={stepId}
-              onClose={this.handleCloseModal}
-              firmware={firmware}
-              error={error}
-              deviceModelId={deviceSpecs.id}
-              setFirmwareUpdateOpened={setFirmwareUpdateOpened}
-            />
-          </>
-        ) : null}
+        <DisclaimerModal
+          firmware={firmware}
+          deviceInfo={deviceInfo}
+          status={modal}
+          goToNextStep={this.handleDisclaimerNext}
+          onClose={this.handleCloseModal}
+        />
+        <UpdateModal
+          withAppsToReinstall={
+            !!installed &&
+            installed.length > 0 &&
+            hasAppsToBeReinstalled(deviceInfo, device.modelId)
+          }
+          withResetStep={hasResetStep(deviceInfo, device.modelId)}
+          status={modal}
+          stepId={stepId}
+          installed={installed}
+          onClose={this.handleCloseModal}
+          firmware={firmware}
+          error={error}
+          deviceModelId={deviceSpecs.id}
+          setFirmwareUpdateOpened={setFirmwareUpdateOpened}
+        />
       </Box>
     );
   }

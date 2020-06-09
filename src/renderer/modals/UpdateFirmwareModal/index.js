@@ -20,7 +20,8 @@ type MaybeError = ?Error;
 
 export type StepProps = {
   firmware: FirmwareUpdateContext,
-  onCloseModal: () => void,
+  appsToBeReinstalled: boolean,
+  onCloseModal: (proceedToAppReinstall?: boolean) => void,
   error: ?Error,
   setError: Error => void,
   deviceModelId: DeviceModelId,
@@ -34,8 +35,9 @@ type Step = TypedStep<StepId, StepProps>;
 
 type Props = {
   withResetStep: boolean,
+  withAppsToReinstall: boolean,
   status: ModalStatus,
-  onClose: () => void,
+  onClose: (proceedToAppReinstall?: boolean) => void,
   firmware: ?FirmwareUpdateContext,
   stepId: StepId,
   error: ?Error,
@@ -55,10 +57,15 @@ export function hasResetStep(deviceInfo: DeviceInfo, deviceModelId: DeviceModelI
   return deviceModelId === "blue" && semver.lt(deviceInfo.version, "2.1.1");
 }
 
+export function hasAppsToBeReinstalled(deviceInfo: DeviceInfo, deviceModelId: DeviceModelId) {
+  return deviceModelId === "blue" || deviceModelId === "nanoX";
+}
+
 const UpdateModal = ({
   stepId,
   deviceModelId,
   withResetStep,
+  withAppsToReinstall,
   error,
   status,
   onClose,
@@ -111,7 +118,6 @@ const UpdateModal = ({
 
       let steps = [updateStep, mcuStep, finalStep];
       if (withResetStep) steps = [resetStep, ...steps];
-
       return steps;
     },
     [t],
@@ -149,6 +155,7 @@ const UpdateModal = ({
 
   const additionalProps = {
     ...props,
+    appsToBeReinstalled: withAppsToReinstall,
     onCloseModal: onClose,
     setError,
     firmware,
