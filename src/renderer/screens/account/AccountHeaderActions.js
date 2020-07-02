@@ -6,6 +6,7 @@ import { connect } from "react-redux";
 import { withTranslation } from "react-i18next";
 import styled from "styled-components";
 import type { Account, AccountLike } from "@ledgerhq/live-common/lib/types";
+import { isCurrencySwapSupported } from "@ledgerhq/live-common/lib/swap";
 import Tooltip from "~/renderer/components/Tooltip";
 import {
   isAccountEmpty,
@@ -20,7 +21,12 @@ import IconAccountSettings from "~/renderer/icons/AccountSettings";
 import perFamily from "~/renderer/generated/AccountHeaderActions";
 import Box, { Tabbable } from "~/renderer/components/Box";
 import Star from "~/renderer/components/Stars/Star";
-import { ReceiveActionDefault, SendActionDefault, BuyActionDefault } from "./AccountActionsDefault";
+import {
+  ReceiveActionDefault,
+  SendActionDefault,
+  BuyActionDefault,
+  SwapActionDefault,
+} from "./AccountActionsDefault";
 import perFamilyAccountActions from "~/renderer/generated/accountActions";
 import type { ThemedComponent } from "~/renderer/styles/StyleProvider";
 import { isCurrencySupported } from "~/renderer/screens/exchange/config";
@@ -66,6 +72,7 @@ const AccountHeaderActions = ({ account, parentAccount, openModal, t }: Props) =
   const SendAction = (decorators && decorators.SendAction) || SendActionDefault;
   const ReceiveAction = (decorators && decorators.ReceiveAction) || ReceiveActionDefault;
   const currency = getAccountCurrency(account);
+  const availableOnSwap = isCurrencySwapSupported(currency);
   const availableOnExchange = isCurrencySupported(currency);
   const history = useHistory();
 
@@ -81,6 +88,10 @@ const AccountHeaderActions = ({ account, parentAccount, openModal, t }: Props) =
     history.push("/exchange");
   }, [history]);
 
+  const onSwap = useCallback(() => {
+    history.push("/swap");
+  }, [history]);
+
   return (
     <Box horizontal alignItems="center" justifyContent="flex-end" flow={2}>
       {!isAccountEmpty(account) ? (
@@ -92,6 +103,7 @@ const AccountHeaderActions = ({ account, parentAccount, openModal, t }: Props) =
 
           <ReceiveAction account={account} parentAccount={parentAccount} onClick={onReceive} />
           {availableOnExchange ? <BuyActionDefault currency={currency} onClick={onBuy} /> : null}
+          {availableOnSwap ? <SwapActionDefault currency={currency} onClick={onSwap} /> : null}
         </>
       ) : null}
       <Tooltip content={t("stars.tooltip")}>

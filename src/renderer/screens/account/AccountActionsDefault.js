@@ -7,6 +7,7 @@ import Box from "~/renderer/components/Box";
 import Button from "~/renderer/components/Button";
 import type { Currency } from "@ledgerhq/live-common/lib/types";
 import IconExchange from "~/renderer/icons/Exchange";
+import IconSwap from "~/renderer/icons/Swap";
 
 export const SendActionDefault = ({ onClick }: { onClick: () => void }) => (
   <Button small primary onClick={onClick}>
@@ -48,6 +49,29 @@ export const BuyActionDefault = ({
       <IconExchange size={12} />
       <Box>
         <Trans i18nKey="buy.titleCrypto" values={{ currency: currency.name }} />
+      </Box>
+    </Box>
+  </Button>
+);
+
+export const SwapActionDefault = ({
+  onClick,
+  currency,
+}: {
+  onClick: () => void,
+  currency: Currency,
+}) => (
+  <Button
+    small
+    primary
+    onClick={onClick}
+    event="Swap Crypto Account Button"
+    eventProperties={{ currencyName: currency.name }}
+  >
+    <Box horizontal flow={1} alignItems="center">
+      <IconSwap size={12} />
+      <Box>
+        <Trans i18nKey="swap.title" values={{ currency: currency.name }} />
       </Box>
     </Box>
   </Button>
