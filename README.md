@@ -1,3 +1,7 @@
+Beta channel of https://github.com/LedgerHQ/ledger-live-desktop
+
+<!-- (keeping the original readme to avoid future conflicts)
+
 # Ledger Live (desktop) [![Crowdin](https://d322cqt584bo4o.cloudfront.net/ledger-wallet/localized.svg)](https://crowdin.com/project/ledger-wallet)
 
 - Related: [ledger-live-mobile](https://github.com/ledgerhq/ledger-live-mobile)
@@ -161,3 +165,4 @@ src
 ├── network.js : network implementation. will eventually move back to live-common.
 └── sentry : related to bug report API
 ```
+-->

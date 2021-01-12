@@ -1,7 +1,7 @@
 // @flow
 
 import { hasCompletedOnboardingSelector } from "~/renderer/reducers/settings";
-import { start } from "~/renderer/analytics/segment";
+// import { start } from "~/renderer/analytics/segment";
 import type { State } from "~/renderer/reducers";
 
 let isAnalyticsStarted = false;
@@ -13,6 +13,7 @@ export default (store: *) => (next: *) => (action: *) => {
 
   if (hasCompletedOnboarding && !isAnalyticsStarted) {
     isAnalyticsStarted = true;
-    start(store);
+    // no analytics for beta
+    // start(store);
   }
 };
